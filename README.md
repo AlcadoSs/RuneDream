@@ -51,6 +51,10 @@ close — and the runes keep carving while you're away (50% base efficiency, 12h
   Huginn & Muninn, Bifröst (the stone carves itself)
 - **The Codex** — a lore collection that remembers every rune and bind you have
   ever discovered, through the end of every world
+- **Mysteries** — whispers drift in from the Norns. Some things in this game are
+  never explained: the old words still work, midnight matters, and there may or
+  may not be a nameless twenty-fifth rune. The Codex counts what you've found
+  (8 to find — no spoilers here)
 - **First-carve glow** — when you can afford a rune you've never carved, its row
   lights up so you never miss the moment
 - Generated theme art (backdrop + runestone), CSS-carved motion — no assets

@@ -574,6 +574,7 @@ main {
 .toast .t-title { color: var(--gold); font-family: var(--font-display); letter-spacing: .08em; }
 .toast.teal { border-left-color: var(--teal); }
 .toast.teal .t-title { color: var(--teal); }
+.toast.whisper { border-left-color: #7d6cc9; font-style: italic; color: var(--dim); }
 .toast.fadeout { animation: toastout .4s ease forwards; }
 @keyframes toastin { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
 @keyframes toastout { to { opacity: 0; transform: translateX(24px); } }
@@ -621,6 +622,55 @@ main {
   border-color: rgba(88,208,192,.5);
   color: var(--teal);
 }
+
+/* ------------------------------------------------ Muninn's memory game */
+#memoryOverlay {
+  position: fixed; inset: 0;
+  background: rgba(4,6,10,.75);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 110;
+  animation: fadein .2s ease;
+}
+.memory-box {
+  width: min(420px, calc(100vw - 40px));
+  background: linear-gradient(180deg, var(--panel2), var(--panel));
+  border: 1px solid var(--line2);
+  border-radius: 16px;
+  padding: 22px 24px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,.6);
+}
+.memory-box h3 { font-family: var(--font-display); letter-spacing: .1em; color: var(--teal); margin-bottom: 6px; }
+.memory-hint { color: var(--dim); font-size: 12.5px; margin-bottom: 12px; }
+.memory-stage {
+  font-family: var(--font-rune);
+  font-size: 64px; height: 84px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--gold);
+  text-shadow: 0 0 24px rgba(232,200,116,.6);
+}
+.memory-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 6px; }
+.memory-rune {
+  font-family: var(--font-rune);
+  font-size: 26px;
+  color: var(--gold);
+  background: var(--panel3);
+  border: 1px solid var(--line2);
+  border-radius: 10px;
+  padding: 12px 0;
+  cursor: pointer;
+}
+.memory-rune:hover { border-color: var(--amber); }
+.memory-rune.got { border-color: var(--teal); color: var(--teal); text-shadow: 0 0 12px rgba(88,208,192,.5); }
+.memory-rune.miss { border-color: var(--danger); color: var(--danger); }
+.memory-skip {
+  margin-top: 14px;
+  background: none; border: none;
+  color: var(--faint);
+  font-size: 11px; letter-spacing: .15em; text-transform: uppercase;
+  cursor: pointer;
+}
+.memory-skip:hover { color: var(--dim); }
 
 /* ------------------------------------------------ fx */
 .fx-glyph {
@@ -942,6 +992,36 @@ const RAGNA_FLAVOR = [
   "The gods fall, and rise, as surely as the runes on the stone are worn and recut.",
 ];
 
+/* ================================ MYSTERIES ================================
+   Hidden things, whispered of but never explained. All state survives Ragnarök.
+   Found secrets are recorded in the Codex ("The Mysteries"). No spoilers in UI. */
+const WHISPERS = [
+  "A raven circles the stone… it has seen your future, and it approves.",
+  "Nine nights. Nine roots. Nine words the god would not say.",
+  "A trickster's laugh echoes through the branches. Names are his favourite doors.",
+  "The old words still work, you know. The true names of the mighty.",
+  "The wolf waits beneath the river, fetter in mouth. Say his name and see.",
+  "The tree that holds up the sky has a name — and the name opens roots.",
+  "One-eyed, the Wanderer watches. His ravens bring gifts to the curious.",
+  "There is a twenty-fifth rune. It has no name, and it is listening.",
+  "Midnight belongs to the Wild Hunt. Be carving when they ride.",
+  "What the carver forgets, the raven remembers — if you keep the ravens.",
+  "Somewhere beneath the roots, a well murmurs to those who would pay the price.",
+  "The god won the runes by hanging from the tree. Nine touches for nine nights.",
+];
+
+const SECRET_LORE = {
+  odin:       ["The Wanderer's Gift", "You spoke the Allfather's name aloud, and the ravens brought a tithe of essence. Once each Age, the old gift holds."],
+  loki:       ["The Trickster's Toll", "The name invited him in. He stole from you — and returned it with interest. The trickster is generous only to keep you guessing."],
+  fenrir:     ["The Wolf Stirs", "Bound until the breaking of the world, the wolf lends his rage to your chisel — fifty carves, three times as deep."],
+  yggdrasil:  ["The Root-Drink", "The world-tree has a name, and the name is a door. For one minute, the tree drank from your hands."],
+  nineNights: ["The Nine Nights", "Nine times you touched the god's own rune. He hung nine nights to win the runes; now they know your touch — carves crit more often."],
+  memory:     ["Muninn's Memory", "The raven showed you the pattern of the world, and you remembered it. Memory always pays."],
+  wildhunt:   ["The Wild Hunt", "You were carving at the turning of the day when the Hunt rode by. They slowed, and blessed the stone."],
+  blank:      ["The Blank Rune", "There is a twenty-fifth rune. No name, no glyph, no meaning — and it was listening all along. It waits in the Wyrd."],
+};
+const SECRET_COUNT = Object.keys(SECRET_LORE).length;
+
 /* ------------------------------------------------ STATE */
 
 function defaultState() {
@@ -960,6 +1040,17 @@ function defaultState() {
     buyAmount: 1,        // 1 | 10 | "max"
     lastTick: Date.now(),
     started: Date.now(),
+    // --- mysteries (survive Ragnarök: the ravens remember) ---
+    secrets: {},         // id -> true once found
+    buffs: [],           // timed {type: "prod"|"click", mult, until}
+    whisperIdx: 0,
+    nextWhisper: Date.now() + 5 * 60_000,
+    nextMemory: Date.now() + 12 * 60_000,
+    lastWildHunt: "",    // date string of the last Wild Hunt
+    fenrirCarves: 0,     // remaining ×3 carves from the wolf
+    wordAge: {},         // once-per-Age words: word -> age last spoken
+    wordCd: {},          // cooldown words: word -> timestamp
+    ansuzTaps: 0,        // nine nights progress
   };
 }
 
@@ -1013,9 +1104,21 @@ function runeProd(r) {
   if (!lvl) return 0;
   return r.prod * lvl * Math.pow(2, milestoneCount(lvl)) * runeMultOf(r.id);
 }
+/* timed mystery buffs */
+function prodBuffMult() {
+  let m = 1; const now = Date.now();
+  for (const b of S.buffs) if (b.type === "prod" && now < b.until) m *= b.mult;
+  return m;
+}
+function clickBuffMult() {
+  let m = 1; const now = Date.now();
+  for (const b of S.buffs) if (b.type === "click" && now < b.until) m *= b.mult;
+  return m;
+}
 function globalProdMult() {
   const hlid = S.boons.hlidskjalf || 0;
-  return (1 + 0.30 * hlid) * bindMult("prod_mult");
+  const blank = S.boons.blankrune ? 9 : 1; // the nameless rune, carved at last
+  return (1 + 0.30 * hlid) * bindMult("prod_mult") * blank * prodBuffMult();
 }
 function totalProd() {
   let t = 0;
@@ -1045,11 +1148,12 @@ function maxAffordable(r) {
 function clickPower() {
   const base = 1 + totalProd() * 0.02;
   const gungnir = Math.pow(2, S.boons.gungnir || 0);
-  return base * gungnir * bindMult("click_mult");
+  return base * gungnir * bindMult("click_mult") * clickBuffMult();
 }
 function critChance() {
   const p = S.runes.perthro || 0;
-  return Math.min(0.35, p * 0.005);
+  const nineNights = S.secrets.nineNights ? 0.09 : 0; // the god's rune knows your touch
+  return Math.min(0.44, p * 0.005 + nineNights);
 }
 function offlineStats() {
   const raidho = S.runes.raidho || 0;
@@ -1135,6 +1239,9 @@ function carve(manual = true, fx = true) {
   let gain = clickPower();
   let crit = false;
   if (Math.random() < critChance()) { gain *= 10; crit = true; S.crits++; }
+  if (S.fenrirCarves > 0) { gain *= 3; S.fenrirCarves--; }
+  // the nameless rune watches critical carves in older worlds
+  if (crit && S.age >= 5 && !S.secrets.blank && Math.random() < 0.02) discoverBlankRune();
   earn(gain);
   if (manual) S.clicks++;
   if (fx && (manual || Math.random() < 0.12)) carveFx(crit, gain);
@@ -1254,6 +1361,157 @@ function toast(title, body = "", teal = false) {
   $("toasts").appendChild(t);
   while ($("toasts").children.length > 5) $("toasts").firstChild.remove();
   setTimeout(() => { t.classList.add("fadeout"); setTimeout(() => t.remove(), 420); }, 4200);
+}
+
+/* ---------------- mystery machinery ---------------- */
+function markSecret(id) {
+  if (S.secrets[id]) return;
+  S.secrets[id] = true;
+  const [t, b] = SECRET_LORE[id];
+  toast(`<b>${t}</b>`, b, true);
+  dirty.codex = true;
+}
+function addBuff(type, mult, ms) {
+  S.buffs = S.buffs.filter(b => Date.now() < b.until);
+  S.buffs.push({ type, mult, until: Date.now() + ms });
+}
+function whisper(text) {
+  const t = document.createElement("div");
+  t.className = "toast whisper";
+  t.innerHTML = `<div style="font-style:italic">${text}</div>`;
+  $("toasts").appendChild(t);
+  while ($("toasts").children.length > 5) $("toasts").firstChild.remove();
+  setTimeout(() => { t.classList.add("fadeout"); setTimeout(() => t.remove(), 420); }, 5200);
+}
+
+/* --- the old words: type them anywhere --- */
+const MYSTERY_WORDS = ["odin", "loki", "fenrir", "yggdrasil", "nothing"];
+function castWord(w) {
+  const now = Date.now();
+  if (w === "loki") { // the trickster comes and goes as he pleases
+    if ((S.wordCd.loki || 0) > now) return;
+    S.wordCd.loki = now + 10 * 60_000;
+    const stolen = S.essence * 0.10;
+    if (stolen > 1) {
+      S.essence -= stolen;
+      toast("A trickster's laugh", `Loki pockets <b>${fmt(stolen)}</b> essence. He promises to return it…`);
+      setTimeout(() => {
+        earn(stolen * 1.25);
+        toast("…returned, with interest", `+${fmt(stolen * 1.25)} essence. The trickster waves.`, true);
+      }, 8000);
+    } else {
+      toast("A trickster's laugh", "Loki searched your pockets and found nothing. He respects that.");
+    }
+    markSecret("loki");
+    return;
+  }
+  if ((S.wordAge[w] || 0) === S.age) { // the other words: once per Age
+    toast("The echo fades", "The old words need a new world between their speakings.");
+    return;
+  }
+  S.wordAge[w] = S.age;
+  if (w === "odin") {
+    const gift = Math.max(25, totalProd() * 180);
+    earn(gift);
+    toast("Huginn & Muninn circle", `The ravens bring a gift from the One-Eyed — <b>+${fmt(gift)} essence</b>`, true);
+    markSecret("odin");
+  } else if (w === "fenrir") {
+    S.fenrirCarves = 50;
+    toast("The wolf stirs beneath the river", "The next <b>50 carves</b> land with his rage — ×3");
+    markSecret("fenrir");
+  } else if (w === "yggdrasil") {
+    addBuff("prod", 2, 60_000);
+    toast("Yggdrasil drinks deep", "×2 essence for one minute — the tree remembers kindness");
+    markSecret("yggdrasil");
+  } else if (w === "nothing") {
+    if (S.age >= 3) discoverBlankRune();
+    else toast("The stone ignores you", "Something without a name is not yet listening. Not this Age.");
+  }
+}
+let kbuf = "";
+function mysteryKeystroke(key) {
+  if (!/^[a-z]$/i.test(key)) return;
+  kbuf = (kbuf + key.toLowerCase()).slice(-16);
+  for (const w of MYSTERY_WORDS)
+    if (kbuf.endsWith(w)) { kbuf = ""; castWord(w); return; }
+}
+function discoverBlankRune() {
+  if (S.secrets.blank) return;
+  S.secrets.blank = true;
+  dirty.wyrd = true;
+  toast("<b>᛬ The Blank Rune</b>", "Your chisel slips and carves nothing. The nothing stares back. Something nameless now waits in the <b>Wyrd</b> tab.", true);
+  markSecret("blank");
+}
+
+/* --- Muninn's Memory: the raven shows a pattern, you carve it back --- */
+function startMemoryGame() {
+  const disc = S.discovered.runes.length >= 4 ? S.discovered.runes.slice() : RUNES.map(r => r.id);
+  disc.sort(() => Math.random() - 0.5);
+  const seq = disc.slice(0, 4);
+  const gridIds = disc.slice(0, Math.min(8, disc.length));
+  const byId = Object.fromEntries(RUNES.map(r => [r.id, r]));
+
+  const ov = document.createElement("div");
+  ov.id = "memoryOverlay";
+  ov.innerHTML = `
+    <div class="memory-box">
+      <h3>Muninn shows you something</h3>
+      <p class="memory-hint">Remember the pattern of the world — then carve it back.</p>
+      <div class="memory-stage">watch…</div>
+      <div class="memory-grid"></div>
+      <button class="memory-skip">let it fly</button>
+    </div>`;
+  document.body.appendChild(ov);
+  const stage = ov.querySelector(".memory-stage");
+  const grid = ov.querySelector(".memory-grid");
+  const closeMemory = () => ov.remove();
+  ov.querySelector(".memory-skip").addEventListener("click", closeMemory);
+
+  let i = 0;
+  const flash = () => {
+    if (i >= seq.length) { stage.textContent = "now carve it back"; buildGrid(); return; }
+    stage.textContent = byId[seq[i++]].glyph;
+    setTimeout(() => { stage.textContent = ""; setTimeout(flash, 180); }, 650);
+  };
+  setTimeout(flash, 900);
+
+  const buildGrid = () => {
+    let idx = 0;
+    for (const id of gridIds) {
+      const b = document.createElement("button");
+      b.className = "memory-rune";
+      b.textContent = byId[id].glyph;
+      b.addEventListener("click", () => {
+        if (id === seq[idx]) {
+          b.classList.add("got");
+          idx++;
+          if (idx >= seq.length) {
+            const reward = Math.max(50, totalProd() * 120);
+            earn(reward);
+            addBuff("click", 3, 60_000);
+            markSecret("memory");
+            toast("Muninn remembers you", `+${fmt(reward)} essence — and ×3 carves for a minute`, true);
+            closeMemory();
+          }
+        } else {
+          b.classList.add("miss");
+          toast("Muninn flutters away", "The pattern is gone. Memory is a fickle friend.");
+          setTimeout(closeMemory, 600);
+        }
+      });
+      grid.appendChild(b);
+    }
+  };
+}
+
+/* --- the Wild Hunt rides at the turning of the day --- */
+function checkWildHunt(d = new Date()) {
+  if (d.getHours() === 0 && S.lastWildHunt !== d.toDateString()) {
+    S.lastWildHunt = d.toDateString();
+    addBuff("prod", 3, 60_000);
+    markSecret("wildhunt");
+    toast("<b>The Wild Hunt rides</b>", "They pass at the day's turning — ×3 essence for a minute", true);
+  }
 }
 
 function modal(title, bodyHtml, buttons) {
@@ -1483,6 +1741,37 @@ function buildWyrd() {
     boonRefs[b.id] = { card, btn, desc: card.querySelector(".desc"), rank: card.querySelector(".rank") };
     grid.appendChild(card);
   }
+
+  // the Blank Rune — a nameless purchase, only for those who found it
+  const blankWrap = document.createElement("div");
+  blankWrap.id = "blankRuneCard";
+  blankWrap.style.display = "none";
+  if (S.secrets.blank) {
+    blankWrap.style.display = "";
+    blankWrap.innerHTML = S.boons.blankrune ? `
+      <div class="bind-card done" style="margin-top:14px">
+        <div class="bind-pair">᛬</div>
+        <div class="bind-name">The Blank Rune — carved</div>
+        <div class="bind-lore">You gave the nameless a meaning, and it answered with the world.</div>
+        <div class="bind-effect">essence from all sources ×9 — forever</div>
+      </div>` : `
+      <div class="bind-card" style="margin-top:14px">
+        <div class="bind-pair">᛬</div>
+        <div class="bind-name">The Blank Rune</div>
+        <div class="bind-lore">No name. No glyph. No meaning — until you give it one.</div>
+        <div class="bind-effect">one time: essence from all sources ×9, forever</div>
+        <button class="bind-unlock" id="blankBuyBtn">Carve the nothing — 99 ᛉ</button>
+      </div>`;
+    const bb = blankWrap.querySelector("#blankBuyBtn");
+    if (bb) bb.addEventListener("click", () => {
+      if (S.boons.blankrune || S.wyrd < 99) return;
+      S.wyrd -= 99;
+      S.boons.blankrune = 1;
+      toast("<b>᛬ You carved the nothing</b>", "The Blank Rune multiplies the world by nine — forever.", true);
+      dirty.wyrd = true;
+    });
+  }
+  grid.after(blankWrap);
   updateWyrd();
 }
 
@@ -1507,19 +1796,25 @@ function updateWyrd() {
     refs.btn.disabled = maxed || S.wyrd < boonCost(b);
     refs.btn.textContent = maxed ? "maxed" : `${boonCost(b)} ᛉ`;
   }
+
+  const bb = $("blankBuyBtn");
+  if (bb) bb.disabled = S.wyrd < 99;
 }
 
 /* --- Codex tab --- */
 function buildCodex() {
   const root = $("tab-codex");
   const dR = S.discovered.runes, dB = S.discovered.binds;
+  const foundSecrets = Object.keys(SECRET_LORE).filter(k => S.secrets[k]);
   root.innerHTML = `
     <p style="color:var(--dim);font-size:13px;line-height:1.6;margin-bottom:16px">
       All that has ever been carved is remembered here — through every Ragnarök.
       <b style="color:var(--gold)">${dR.length}/24 runes</b> ·
-      <b style="color:var(--teal)">${dB.length}/${BINDS.length} binds</b></p>
+      <b style="color:var(--teal)">${dB.length}/${BINDS.length} binds</b> ·
+      <b style="color:#b8a8e8">${foundSecrets.length}/${SECRET_COUNT} mysteries</b></p>
     <div class="codex-section"><h3>The Futhark</h3><div class="codex-grid" id="codexRunes"></div></div>
-    <div class="codex-section"><h3>The Bind Runes</h3><div class="codex-grid" id="codexBinds"></div></div>`;
+    <div class="codex-section"><h3>The Bind Runes</h3><div class="codex-grid" id="codexBinds"></div></div>
+    <div class="codex-section"><h3 style="color:#b8a8e8">The Mysteries</h3><div class="codex-grid" id="codexSecrets"></div></div>`;
 
   const gr = $("codexRunes");
   for (const r of RUNES) {
@@ -1545,6 +1840,21 @@ function buildCodex() {
       <div class="codex-poem">“${r.poem}”</div>
       <div class="codex-ms">${msHtml}</div>`;
     gr.appendChild(c);
+
+    // nine nights: the god's own rune counts your touch
+    if (r.id === "ansuz" && !S.secrets.nineNights) {
+      const glyphEl = c.querySelector(".codex-glyph");
+      glyphEl.style.cursor = "pointer";
+      glyphEl.addEventListener("click", () => {
+        S.ansuzTaps++;
+        if (S.ansuzTaps === 3) toast("The god hung one night…", "the rune feels your touch");
+        else if (S.ansuzTaps === 6) toast("…six nights…", "something leans closer from the branches");
+        else if (S.ansuzTaps >= 9) {
+          markSecret("nineNights");
+          dirty.codex = true;
+        }
+      });
+    }
   }
 
   const gb = $("codexBinds");
@@ -1565,6 +1875,26 @@ function buildCodex() {
         <div class="codex-ms" style="color:var(--teal)">${b.effect.desc}</div>`;
     }
     gb.appendChild(c);
+  }
+
+  // mysteries: found ones are remembered; the rest stay whispered of
+  const gs = $("codexSecrets");
+  for (const id of Object.keys(SECRET_LORE)) {
+    const c = document.createElement("div");
+    if (!S.secrets[id]) {
+      c.className = "codex-card locked-card";
+      c.textContent = "·  WHISPERED OF  ·";
+    } else {
+      const [t, b] = SECRET_LORE[id];
+      c.className = "codex-card";
+      c.innerHTML = `
+        <div class="codex-top">
+          <div class="codex-glyph" style="color:#b8a8e8;text-shadow:0 0 12px rgba(184,168,232,.4)">᛬</div>
+          <div><div class="name">${t}</div><div class="meaning">a mystery, remembered</div></div>
+        </div>
+        <div class="codex-poem">“${b}”</div>`;
+    }
+    gs.appendChild(c);
   }
 }
 
@@ -1649,6 +1979,7 @@ $("carveBtn").addEventListener("click", () => {
   carve();
 });
 document.addEventListener("keydown", e => {
+  mysteryKeystroke(e.key); // the old words listen everywhere
   if (e.code === "Space" && !e.repeat && document.activeElement.tagName !== "BUTTON") {
     e.preventDefault();
     carve();
@@ -1686,6 +2017,18 @@ function loop() {
     autoAcc += auto * dt;
     while (autoAcc >= 1) { carve(false, false); autoAcc -= 1; }
   }
+
+  // mysteries: whispers, Muninn's memory, the Wild Hunt, expired buffs
+  if (now > S.nextWhisper) {
+    S.nextWhisper = now + (7 + Math.random() * 8) * 60_000;
+    whisper(WHISPERS[S.whisperIdx++ % WHISPERS.length]);
+  }
+  if ((S.boons.ravens || 0) > 0 && now > S.nextMemory && !document.getElementById("memoryOverlay")) {
+    S.nextMemory = now + (10 + Math.random() * 8) * 60_000;
+    startMemoryGame();
+  }
+  checkWildHunt();
+  if (S.buffs.length && S.buffs.every(b => now >= b.until)) S.buffs = [];
 
   // aett unlock watch
   for (const a of AETTS) {
