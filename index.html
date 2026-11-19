@@ -1122,6 +1122,7 @@ function defaultState() {
     ansuzTaps: 0,        // nine nights progress
     mastery: {},         // rune id -> transcend count (Lv 1000 reset; unique perk first time)
     nextGift: 0,         // Gebo's ring-gift timer
+    aettHigh: { 1: 0, 2: 0 }, // high-water aett level totals this Age (transcends don't un-open gates)
   };
 }
 
@@ -1139,7 +1140,13 @@ function aettLevels(aettN) {
 function aettUnlocked(aettN) {
   const a = AETTS[aettN - 1];
   if (!a.gate) return true;
-  return aettLevels(a.gate.from) >= a.gate.levels;
+  // gate counts the high-water mark: transcending a rune back to zero must never
+  // re-lock an aett you had already proven (Ragnarök resets the high-water per Age)
+  const high = Math.max(aettLevels(a.gate.from), (S.aettHigh || {})[a.gate.from] || 0);
+  return high >= a.gate.levels;
+}
+function aettEffectiveLevels(aettN) {
+  return Math.max(aettLevels(aettN), (S.aettHigh || {})[aettN] || 0);
 }
 
 function bindMult(type) { // multiplicative effects (prod_mult, click_mult)
@@ -1365,6 +1372,10 @@ function buyRune(id, amountWanted) {
   const before = lvl, after = lvl + n;
   S.runes[id] = after;
 
+  // record the aett's high-water immediately (transcends must never re-lock a gate)
+  S.aettHigh = S.aettHigh || { 1: 0, 2: 0 };
+  if (aettLevels(r.aett) > (S.aettHigh[r.aett] || 0)) S.aettHigh[r.aett] = aettLevels(r.aett);
+
   // codex discovery
   if (!S.discovered.runes.includes(id)) {
     S.discovered.runes.push(id);
@@ -1436,6 +1447,7 @@ function ragnarok() {
     for (const id of Object.keys(S.runes)) S.runes[id] += 1; // Ing's Blessing
   S.binds = kept;
   S.age++;
+  S.aettHigh = { 1: 0, 2: 0 }; // the new world's gates must be earned anew
   const flavor = RAGNA_FLAVOR[(S.age - 2) % RAGNA_FLAVOR.length];
   toast(`Ragnarök — the world is reborn`, `+${fmt(gain)} Wyrd · Age ${S.age}`, true);
   modal("Age " + S.age, `
@@ -1698,7 +1710,7 @@ function buildFuthark() {
     if (!aettUnlocked(a.n)) {
       const lock = document.createElement("div");
       lock.className = "aett-locked";
-      lock.textContent = `The trials of ${a.name} await — carve ${a.gate.levels} levels in ${AETTS[a.gate.from - 1].name} (${aettLevels(a.gate.from)}/${a.gate.levels}).`;
+      lock.textContent = `The trials of ${a.name} await — carve ${a.gate.levels} levels in ${AETTS[a.gate.from - 1].name} (${aettEffectiveLevels(a.gate.from)}/${a.gate.levels}).`;
       sec.appendChild(lock);
     } else {
       for (const r of RUNES.filter(r => r.aett === a.n)) sec.appendChild(buildRuneRow(r));
@@ -2212,9 +2224,12 @@ function loop() {
   checkWildHunt();
   if (S.buffs.length && S.buffs.every(b => now >= b.until)) S.buffs = [];
 
-  // aett unlock watch
+  // aett unlock watch + high-water tracking (transcends must not re-lock gates)
   for (const a of AETTS) {
-    if (a.gate && !aettUnlocked(a.n) && aettLevels(a.gate.from) >= a.gate.levels) {
+    if (!a.gate) continue;
+    S.aettHigh = S.aettHigh || { 1: 0, 2: 0 };
+    if (aettLevels(a.n) > (S.aettHigh[a.n] || 0)) S.aettHigh[a.n] = aettLevels(a.n);
+    if (!aettUnlocked(a.n) && aettEffectiveLevels(a.gate.from) >= a.gate.levels) {
       dirty.futhark = true;
       toast(`<b>${a.name} opens</b>`, "New trials may be carved");
     }
