@@ -314,6 +314,33 @@ main {
   animation: glyphpulse 2.2s ease-in-out infinite;
 }
 .rune-row.first-carve .meaning { color: var(--dim); }
+/* mastered runes: touched by transcendence — gold, forever */
+.rune-row.mastered {
+  border-color: rgba(232,200,116,.55);
+  border-left: 3px solid var(--gold);
+  background: linear-gradient(180deg, rgba(232,200,116,.10), rgba(18,24,38,.65));
+  box-shadow: 0 0 22px rgba(232,200,116,.10), inset 0 0 26px rgba(232,200,116,.05);
+}
+.rune-row.mastered .rune-glyph {
+  background: radial-gradient(circle at 50% 35%, rgba(232,200,116,.32), rgba(30,24,12,.55) 70%);
+  border-color: var(--gold);
+  color: #f4e3b2;
+  text-shadow: 0 0 14px rgba(232,200,116,.7);
+  animation: masterpulse 3.2s ease-in-out infinite;
+}
+.rune-row.mastered .name { color: #f4e3b2; text-shadow: 0 0 10px rgba(232,200,116,.25); }
+.rune-row.mastered .lvl { color: var(--gold); }
+.ms-badge {
+  font-size: 10px; color: #f4e3b2;
+  border: 1px solid rgba(232,200,116,.5);
+  background: rgba(232,200,116,.10);
+  border-radius: 7px; padding: 1px 7px;
+  letter-spacing: .08em;
+}
+@keyframes masterpulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(232,200,116,.15); }
+  50%      { box-shadow: 0 0 18px rgba(232,200,116,.42); }
+}
 .rune-row.first-carve .rune-buy {
   background: linear-gradient(180deg, #f2b95f, #cf8d31);
   border-color: #f2b95f;
@@ -536,6 +563,16 @@ main {
   color: var(--faint); font-size: 12px; letter-spacing: .25em;
   border-style: dashed;
 }
+.codex-card.mastered-card {
+  border-color: rgba(232,200,116,.5);
+  background: linear-gradient(180deg, rgba(232,200,116,.08), rgba(18,24,38,.6));
+  box-shadow: 0 0 18px rgba(232,200,116,.08);
+}
+.codex-card.mastered-card .codex-glyph {
+  color: #f4e3b2;
+  text-shadow: 0 0 16px rgba(232,200,116,.7);
+}
+.codex-card.mastered-card .name { color: #f4e3b2; }
 .codex-top { display: flex; gap: 12px; align-items: center; margin-bottom: 6px; }
 .codex-glyph {
   font-family: var(--font-rune);
@@ -1686,6 +1723,7 @@ function buildRuneRow(r) {
     <div class="rune-info">
       <div class="name-line">
         <span class="name">${r.name}</span>
+        <span class="ms-badge" style="display:none"></span>
         <span class="meaning">${r.meaning}</span>
         ${r.passive ? `<span class="passive-tag">${r.passive.tag}</span>` : ""}
       </div>
@@ -1701,6 +1739,7 @@ function buildRuneRow(r) {
   const refs = {
     row,
     lvlNum: row.querySelector(".lvl-num"),
+    msBadge: row.querySelector(".ms-badge"),
     prod: row.querySelector(".prod"),
     fill: row.querySelector(".ms-fill"),
     msLabel: row.querySelector(".ms-label"),
@@ -1747,6 +1786,7 @@ function updateRuneRow(r) {
   }
 
   // buy / transcend button
+  let afford = false;
   if (lvl >= RUNE_LEVEL_CAP) {
     refs.cost.textContent = "TRANSCEND";
     refs.add.textContent = masteryOf(r.id) > 0
@@ -1756,7 +1796,7 @@ function updateRuneRow(r) {
   } else {
     const n = S.buyAmount === "max" ? Math.max(1, maxAffordable(r)) : S.buyAmount;
     const cost = bulkCost(r, lvl, n);
-    const afford = S.essence >= cost && (S.buyAmount !== "max" || maxAffordable(r) >= 1);
+    afford = S.essence >= cost && (S.buyAmount !== "max" || maxAffordable(r) >= 1);
     refs.cost.textContent = fmt(cost);
     refs.add.textContent = lvl === 0
       ? `carve ${r.glyph}`
@@ -1764,11 +1804,15 @@ function updateRuneRow(r) {
     refs.btn.disabled = !afford || !aettUnlocked(r.aett);
   }
 
-  // row states: owned / first-carve-available (glowing) / locked
+  // row states: owned / mastered (gold) / first-carve-available (glowing) / locked
+  const m = masteryOf(r.id);
   const firstCarve = lvl === 0 && afford && aettUnlocked(r.aett);
   refs.row.classList.toggle("owned", lvl > 0);
+  refs.row.classList.toggle("mastered", m > 0);
   refs.row.classList.toggle("first-carve", firstCarve);
   refs.row.classList.toggle("locked", lvl === 0 && !firstCarve);
+  refs.msBadge.style.display = m > 0 ? "" : "none";
+  refs.msBadge.textContent = m > 1 ? `ᛞ ×${m}` : "ᛞ";
 }
 
 /* --- Binds tab --- */
@@ -1962,11 +2006,11 @@ function buildCodex() {
         ? ` · <span class="got">✦ Mastery: ${MASTERY[r.id].title}${m > 1 ? " ×" + m : ""}</span>`
         : ` · <span>✧ Mastery <span class="lvl-tag">(Lv 1000 → ${MASTERY[r.id].title})</span></span>`);
     const c = document.createElement("div");
-    c.className = "codex-card";
+    c.className = "codex-card" + (m > 0 ? " mastered-card" : "");
     c.innerHTML = `
       <div class="codex-top">
         <div class="codex-glyph">${r.glyph}</div>
-        <div><div class="name">${r.name}</div><div class="meaning">${r.meaning}</div></div>
+        <div><div class="name">${r.name}${m > 0 ? ` <span class="ms-badge">${m > 1 ? "ᛞ ×" + m : "ᛞ"}</span>` : ""}</div><div class="meaning">${r.meaning}</div></div>
       </div>
       <div class="codex-poem">“${r.poem}”</div>
       <div class="codex-ms">${msHtml}</div>`;
