@@ -63,6 +63,11 @@ close — and the runes keep carving while you're away (50% base efficiency, 12h
 - **The Ninth Door** — master every rune and a door above Ragnarök opens:
   **Ascension** burns everything — Wyrd, boons, the Ages — except your mastery,
   and grants **Örlog**, the fate beneath fate (+50% all essence per point, forever)
+- **The Last Carving** — after nine doors, one line remains: *name the nameless
+  rune*. Your name for the ᛬ is carved into the Codex as the Twenty-Fifth Rune,
+  the Völuspá's closing stanzas roll over your stats — and then you keep dreaming,
+  with the **Dreamer's Echo** (+25% essence, forever). The game has a last line;
+  the loop never has to end.
 - **First-carve glow** — when you can afford a rune you've never carved, its row
   lights up so you never miss the moment
 - Generated theme art (backdrop + runestone), CSS-carved motion — no assets

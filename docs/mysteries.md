@@ -23,6 +23,22 @@ The Codex tracks progress as **x/8 found** under "The Mysteries".
 | 8 | **The Blank Rune ᛬** | **(a)** rare 2 % roll on any *critical* carve at Age ≥ 5, or **(b)** type `nothing` at Age ≥ 3 | unlocks a hidden card in the Wyrd tab: pay **99 Wyrd** once → **×9 all essence, forever** | discovery one-time; purchase one-time |
 | 9 | **The Ninth Door** | **master all 24 runes** (transcend each at least once) | reveals the final mystery and unlocks **Ascension** in the Wyrd tab: burn *everything* (essence, runes, binds, Wyrd, boons, the Ages) except mastery and the Codex, and rise with **Örlog** — +50 % all essence per point, forever (`orlogGain = 1 + floor(age/2) + extra transcends + floor(wyrd/500)`) | repeatable; mastery is never lost |
 
+### The Last Carving (the game's ending)
+
+After the **9th Ascension**, the Ninth Door changes one last time: *"There is one
+more line to carve."* The player is asked to **name the Blank Rune** (≤16 chars).
+On carving:
+
+- the Völuspá-inspired finale plays over a black screen — six stanzas, the rune's
+  new name, and the player's all-time stats (`dreamEssence` survives every burn)
+- **Dreamer's Echo**: +25 % all essence, forever; a ✦ appears beside the title and
+  the subtitle becomes *Dreamer of the Nine Doors*
+- the Codex gains a permanent **Twenty-Fifth Rune** card under the chosen name
+- the door returns to normal Ascension afterwards — the loop continues, forever
+
+State: `S.dreamed`, `S.dreamName`, `S.worldsBurned`, `S.dreamEssence`;
+`openLastCarving` → `openNaming` → `finishDream` in `index.html`.
+
 ### Rejected / reserved ideas
 
 - Konami code — the typed-words system covers it with better flavor

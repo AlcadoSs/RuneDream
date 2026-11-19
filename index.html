@@ -730,6 +730,83 @@ main {
 }
 .memory-skip:hover { color: var(--dim); }
 
+/* ------------------------------------------------ The Last Carving */
+#lastCarvingOverlay {
+  position: fixed; inset: 0;
+  background: rgba(4,6,10,.85);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 120;
+  animation: fadein .3s ease;
+}
+#dreamNameInput {
+  width: 260px;
+  margin: 8px auto 14px;
+  display: block;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 20px;
+  letter-spacing: .12em;
+  color: var(--gold);
+  background: rgba(18,24,38,.9);
+  border: 1px solid rgba(232,200,116,.5);
+  border-radius: 10px;
+  padding: 10px 14px;
+  outline: none;
+}
+#dreamNameInput:focus { border-color: var(--gold); box-shadow: 0 0 16px rgba(232,200,116,.25); }
+#dreamNameInput::placeholder { color: var(--faint); letter-spacing: .06em; }
+
+#finaleOverlay {
+  position: fixed; inset: 0;
+  background: radial-gradient(120% 100% at 50% 30%, #0b0e16 0%, #04060a 80%);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  z-index: 130;
+  text-align: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+#finaleOverlay .finale-rune {
+  font-family: var(--font-rune);
+  font-size: 96px;
+  color: var(--gold);
+  text-shadow: 0 0 40px rgba(232,200,116,.65), 0 0 90px rgba(232,200,116,.3);
+  animation: fadein 1.2s ease both;
+}
+#finaleOverlay .finale-name {
+  font-family: var(--font-display);
+  font-size: 30px;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  color: #f4e3b2;
+  margin: 6px 0 26px;
+  animation: fadein 1.2s ease .3s both;
+}
+#finaleOverlay .stanza {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--dim);
+  line-height: 1.9;
+  opacity: 0;
+  animation: fadein 1.6s ease both;
+}
+#finaleOverlay .finale-stats {
+  margin-top: 26px;
+  font-size: 13px;
+  line-height: 2;
+  color: var(--dim);
+  opacity: 0;
+  animation: fadein 1.6s ease both;
+}
+#finaleOverlay .finale-stats b { color: var(--gold); font-variant-numeric: tabular-nums; }
+#finaleOverlay .memory-skip {
+  opacity: 0;
+  animation: fadein 1.4s ease both;
+  margin-top: 10px;
+  font-size: 12px;
+}
+
 /* ------------------------------------------------ fx */
 .fx-glyph {
   position: fixed;
@@ -789,7 +866,7 @@ footer {
 <div id="app">
   <header>
     <div class="brand">
-      <h1><span class="rune-r">ᚱ</span>UNEDREAM</h1>
+      <h1><span class="rune-r">ᚱ</span>UNEDREAM<span id="dreamStar" style="display:none"> ✦</span></h1>
       <div class="sub">Carver of the Futhark</div>
     </div>
     <div class="resources">
@@ -1157,6 +1234,10 @@ function defaultState() {
     aettHigh: { 1: 0, 2: 0 }, // high-water aett level totals this Age (transcends don't un-open gates)
     orlog: 0,            // Örlog: primal fate, won by Ascension — multiplies everything
     ascensions: 0,       // times the Ninth Door has been walked
+    dreamed: false,      // The Last Carving: the dream has its final line
+    dreamName: "",       // the name the player carved into the Blank Rune
+    worldsBurned: 0,     // every Ragnarök and Ascension, forever
+    dreamEssence: 0,     // all-time essence, beyond even Ascension's burn
   };
 }
 
@@ -1246,6 +1327,7 @@ function globalProdMult() {
   if (masteryOf("mannaz") > 0) m *= 1 + 0.05 * S.discovered.binds.length;      // The Kindred
   if (masteryOf("othala") > 0) m *= 1.25;                        // Ancestral Hearth
   m *= 1 + 0.5 * (S.orlog || 0);                                 // Örlog: the fate beneath fate
+  if (S.dreamed) m *= 1.25;                                      // Dreamer's Echo: the last line resonates
   return m;
 }
 function totalProd() {
@@ -1372,6 +1454,7 @@ function earn(n) {
   S.essence += n;
   S.lifetime += n;
   S.cycle += n;
+  S.dreamEssence = (S.dreamEssence || 0) + n; // beyond even Ascension's burn
 }
 
 function carve(manual = true, fx = true) {
@@ -1487,6 +1570,7 @@ function ragnarok() {
   S.binds = kept;
   S.age++;
   S.aettHigh = { 1: 0, 2: 0 }; // the new world's gates must be earned anew
+  S.worldsBurned = (S.worldsBurned || 0) + 1;
   const flavor = RAGNA_FLAVOR[(S.age - 2) % RAGNA_FLAVOR.length];
   toast(`Ragnarök — the world is reborn`, `+${fmt(gain)} Wyrd · Age ${S.age}`, true);
   modal("Age " + S.age, `
@@ -1546,8 +1630,74 @@ function ascend() {
   rebirthRunes();
   S.binds = []; S.wyrd = 0; S.boons = {}; S.buffs = [];
   S.age = 1; S.aettHigh = { 1: 0, 2: 0 };
+  S.worldsBurned = (S.worldsBurned || 0) + 1;
   dirty.futhark = dirty.binds = dirty.codex = dirty.wyrd = true;
   toast(`<b>᛬ You walk the Ninth Door</b>`, `+${gain} Örlog · the world begins again, and you are more than it remembers`, true);
+}
+
+/* --- The Last Carving: the dream's final line --- */
+const FINALE_STANZAS = [
+  "She sees the earth rise again, green from the sea —",
+  "fields bear fruit unsown, and the wolf is forgotten.",
+  "The gods gather on Iðavöll and remember the world-serpent,",
+  "and there among the grass they find the golden tables —",
+  "the runes their elder kin once carved, and one name they do not know.",
+  "It is yours.",
+];
+function openLastCarving() {
+  modal("The Last Carving", `
+    <p>Nine doors walked. Every rune taken to its thousandth line and given back.
+    One line remains — and the stone will not carve it for you.</p>
+    <p style="margin-top:8px">You will name the nameless rune. The dream finds its final line —
+    but dreaming does not end: you may keep carving after, with a <b>Dreamer's Echo</b> (+25% essence, forever).</p>`,
+    [ { label: "Hold the line", fn: closeModal },
+      { label: "Take the chisel", primary: true, teal: true, fn: openNaming } ]);
+}
+function openNaming() {
+  const ov = document.createElement("div");
+  ov.id = "lastCarvingOverlay";
+  ov.innerHTML = `
+    <div class="memory-box" style="border-color:rgba(232,200,116,.55)">
+      <h3 style="color:var(--gold)">Name the nameless rune</h3>
+      <p class="memory-hint">One line. Sixteen letters at most. The runes will remember.</p>
+      <div class="memory-stage" style="font-size:88px">᛬</div>
+      <input id="dreamNameInput" maxlength="16" spellcheck="false" autocomplete="off"
+             placeholder="its name…"></input>
+      <br>
+      <button class="memory-skip" id="dreamNameBtn" disabled>carve the last line</button>
+    </div>`;
+  document.body.appendChild(ov);
+  const input = ov.querySelector("#dreamNameInput");
+  const btn = ov.querySelector("#dreamNameBtn");
+  input.addEventListener("input", () => { btn.disabled = input.value.trim().length < 1; });
+  input.addEventListener("keydown", e => { if (e.key === "Enter" && input.value.trim()) finishDream(input.value.trim()); e.stopPropagation(); });
+  btn.addEventListener("click", () => { if (input.value.trim()) finishDream(input.value.trim()); });
+  setTimeout(() => input.focus(), 100);
+}
+function finishDream(name) {
+  const ov = document.getElementById("lastCarvingOverlay");
+  if (ov) ov.remove();
+  S.dreamed = true;
+  S.dreamName = name;
+  dirty.codex = dirty.wyrd = true;
+
+  const stats = `
+    <div class="finale-stats">
+      <b>${fmt(S.clicks)}</b> carves · <b>${fmt(S.crits)}</b> critical<br>
+      <b>${fmt(S.dreamEssence)}</b> essence, beyond every burning<br>
+      <b>${S.worldsBurned}</b> worlds burned · <b>${S.ascensions}</b> doors walked<br>
+      <b>${Object.keys(S.secrets).length}/9</b> mysteries found
+    </div>`;
+  const fin = document.createElement("div");
+  fin.id = "finaleOverlay";
+  fin.innerHTML = `
+    <div class="finale-rune">᛬</div>
+    <div class="finale-name">${name.replace(/[<>&]/g, "")}</div>
+    ${FINALE_STANZAS.map((s, i) => `<div class="stanza" style="animation-delay:${0.6 + i * 1.7}s">${s}</div>`).join("")}
+    <div class="finale-stats" style="animation-delay:${0.6 + FINALE_STANZAS.length * 1.7 + 0.5}s">${stats}</div>
+    <button class="memory-skip" style="animation-delay:${0.6 + FINALE_STANZAS.length * 1.7 + 1.5}s" id="keepDreamingBtn">keep dreaming</button>`;
+  document.body.appendChild(fin);
+  fin.querySelector("#keepDreamingBtn").addEventListener("click", () => fin.remove());
 }
 
 function hardReset() {
@@ -1972,7 +2122,10 @@ function buildWyrd() {
         { label: "Let it burn", primary: true, fn: ragnarok } ]);
   });
   $("hardResetBtn").addEventListener("click", hardReset);
-  $("ascendBtn").addEventListener("click", openAscendModal);
+  $("ascendBtn").addEventListener("click", () => {
+    if (allMastered() && !S.dreamed && (S.ascensions || 0) >= 9) openLastCarving();
+    else openAscendModal();
+  });
 
   const grid = $("boonGrid");
   boonRefs = {};
@@ -2052,23 +2205,36 @@ function updateWyrd() {
   const bb = $("blankBuyBtn");
   if (bb) bb.disabled = S.wyrd < 99;
 
-  // the Ninth Door
+  // the Ninth Door (sealed / open / the final line / dreamed)
   const ndText = $("ninthDoorText"), ndBtn = $("ascendBtn");
   if (ndText && ndBtn) {
-    if (allMastered()) {
-      ndText.innerHTML = `You hung from the tree as the god once hung. Beyond the door:
-        <b style="color:var(--text)">everything burns</b> — essence, runes, binds, Wyrd, boons, the Ages —
-        all but your mastery and the Codex. You rise holding <b style="color:#b8a8e8">Örlog</b>,
-        the fate beneath fate: <b>+50% all essence per point, forever.</b><br>
-        <span style="color:var(--dim)">held: ${S.orlog || 0} Örlog · doors walked: ${S.ascensions || 0}</span>`;
-      ndBtn.style.display = "";
-      ndBtn.textContent = `Ascend — +${orlogGain()} Örlog`;
-      ndBtn.disabled = false;
-    } else {
+    if (!allMastered()) {
       const masteredCount = RUNES.filter(r => masteryOf(r.id) > 0).length;
       ndText.innerHTML = `Sealed. Transcend every rune — <b>${masteredCount}/24</b> mastered —
         and the tree will let you hang where the god once hung.`;
       ndBtn.style.display = "none";
+    } else if (S.dreamed) {
+      ndText.innerHTML = `The dream holds its final line: <b style="color:var(--gold)">᛬ ${S.dreamName}</b> —
+        and its echo runs beneath everything you carve (+25% essence, forever).<br>
+        <span style="color:var(--dim)">held: ${S.orlog || 0} Örlog · doors walked: ${S.ascensions} · the dream may still deepen</span>`;
+      ndBtn.style.display = "";
+      ndBtn.textContent = `Ascend — +${orlogGain()} Örlog`;
+      ndBtn.disabled = false;
+    } else if ((S.ascensions || 0) >= 9) {
+      ndText.innerHTML = `Nine doors walked. One line remains —
+        <b style="color:var(--gold)">the stone will not carve it for you.</b>`;
+      ndBtn.style.display = "";
+      ndBtn.textContent = `᛬ The Last Carving`;
+      ndBtn.disabled = false;
+    } else {
+      ndText.innerHTML = `You hung from the tree as the god once hung. Beyond the door:
+        <b style="color:var(--text)">everything burns</b> — essence, runes, binds, Wyrd, boons, the Ages —
+        all but your mastery and the Codex. You rise holding <b style="color:#b8a8e8">Örlog</b>,
+        the fate beneath fate: <b>+50% all essence per point, forever.</b><br>
+        <span style="color:var(--dim)">held: ${S.orlog || 0} Örlog · doors walked: ${S.ascensions || 0} · the ninth door needs nine walks</span>`;
+      ndBtn.style.display = "";
+      ndBtn.textContent = `Ascend — +${orlogGain()} Örlog`;
+      ndBtn.disabled = false;
     }
   }
 }
@@ -2081,7 +2247,7 @@ function buildCodex() {
   root.innerHTML = `
     <p style="color:var(--dim);font-size:13px;line-height:1.6;margin-bottom:16px">
       All that has ever been carved is remembered here — through every Ragnarök.
-      <b style="color:var(--gold)">${dR.length}/24 runes</b> ·
+      <b style="color:var(--gold)">${dR.length}/24 runes${S.dreamed ? " + 1 named" : ""}</b> ·
       <b style="color:var(--teal)">${dB.length}/${BINDS.length} binds</b> ·
       <b style="color:#b8a8e8">${foundSecrets.length}/${SECRET_COUNT} mysteries</b></p>
     <div class="codex-section"><h3>The Futhark</h3><div class="codex-grid" id="codexRunes"></div></div>
@@ -2135,6 +2301,19 @@ function buildCodex() {
     }
   }
 
+  // the twenty-fifth card: the rune the player named — always remembered
+  if (S.dreamed) {
+    const d = document.createElement("div");
+    d.className = "codex-card mastered-card";
+    d.innerHTML = `
+      <div class="codex-top">
+        <div class="codex-glyph" style="font-size:26px">᛬</div>
+        <div><div class="name">${S.dreamName}<span class="ms-badge">ᛞ named</span></div><div class="meaning">The Twenty-Fifth Rune</div></div>
+      </div>
+      <div class="codex-poem">“Nameless through all the worlds — until the Runemaster of the Nine Doors took the chisel and carved its name with their own hand.”</div>`;
+    gr.appendChild(d);
+  }
+
   const gb = $("codexBinds");
   for (const b of BINDS) {
     const c = document.createElement("div");
@@ -2184,7 +2363,9 @@ function buildStats() {
     <div class="row"><span>Carves</span><b id="stClicks">0</b></div>
     <div class="row"><span>Crit carves</span><b id="stCrits">0</b></div>
     <div class="row"><span>Runes known</span><b id="stRunes">0/24</b></div>
-    <div class="row"><span>Binds known</span><b id="stBinds">0/${BINDS.length}</b></div>`;
+    <div class="row"><span>Binds known</span><b id="stBinds">0/${BINDS.length}</b></div>
+    <div class="row"><span>Worlds burned</span><b id="stWorlds">0</b></div>
+    <div class="row"><span>Doors walked</span><b id="stDoors">0</b></div>`;
 }
 function updateStats() {
   const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
@@ -2194,6 +2375,8 @@ function updateStats() {
   set("stCrits", fmt(S.crits));
   set("stRunes", `${S.discovered.runes.length}/24`);
   set("stBinds", `${S.discovered.binds.length}/${BINDS.length}`);
+  set("stWorlds", fmt(S.worldsBurned || 0));
+  set("stDoors", S.ascensions || 0);
 }
 
 /* --- fx --- */
@@ -2232,7 +2415,10 @@ function updateHeader() {
     $("orlogVal").textContent = fmt(S.orlog || 0);
   }
   const sub = document.querySelector(".brand .sub");
-  if (sub) sub.textContent = (S.ascensions || 0) > 0 ? "Runemaster of the Nine Doors" : "Carver of the Futhark";
+  if (sub) sub.textContent = S.dreamed ? "᛬ Dreamer of the Nine Doors"
+    : (S.ascensions || 0) > 0 ? "Runemaster of the Nine Doors" : "Carver of the Futhark";
+  const star = $("dreamStar");
+  if (star) star.style.display = S.dreamed ? "" : "none";
   // binds badge: number of currently-available (ready) binds
   const ready = BINDS.filter(b => !S.binds.includes(b.id) && bindUnlockable(b)).length;
   const badge = $("bindBadge");
@@ -2264,6 +2450,8 @@ $("carveBtn").addEventListener("click", () => {
   carve();
 });
 document.addEventListener("keydown", e => {
+  // typing a rune's name must not wake the old words or the chisel
+  if (document.activeElement && document.activeElement.tagName === "INPUT") return;
   mysteryKeystroke(e.key); // the old words listen everywhere
   if (e.code === "Space" && !e.repeat && document.activeElement.tagName !== "BUTTON") {
     e.preventDefault();
