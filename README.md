@@ -111,6 +111,13 @@ week-scale content. Full data and the five design flaws the sims exposed:
 Single `index.html` (~1 MB, art embedded as base64) · vanilla JS/CSS ·
 runs entirely offline · saves to `localStorage`.
 
+**Tests** — 58 assertions over the real game code (sliced live out of `index.html`
+and run headlessly against a stubbed DOM):
+
+```bash
+node tools/test.js
+```
+
 All balance lives in the data tables at the top of the `<script>`:
 
 - **Tier curve** — rune cost/prod generated from `TIER_COST_MULT` / `TIER_PROD_MULT` (4.8 / 4.2)
