@@ -125,6 +125,7 @@ header {
 .res .value .rate { font-size: 12px; color: var(--dim); font-weight: 400; margin-left: 6px; }
 .res.wyrd .value { color: var(--teal); text-shadow: 0 0 14px rgba(88,208,192,.25); }
 .res.age .value { color: var(--text); text-shadow: none; font-size: 18px; }
+.res.orlog .value { color: #b8a8e8; text-shadow: 0 0 14px rgba(184,168,232,.3); }
 
 main {
   display: grid;
@@ -497,6 +498,26 @@ main {
 }
 #ragnarokBtn:disabled { border-color: var(--line); background: rgba(42,51,72,.4); color: var(--faint); text-shadow: none; cursor: default; }
 #ragnarokBtn .gain { display: block; font-family: var(--font-body); letter-spacing: .05em; text-transform: none; font-size: 12px; margin-top: 3px; color: var(--teal); }
+#ascendBtn {
+  margin-top: 14px;
+  font-family: var(--font-display);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  font-size: 15px;
+  padding: 12px 30px;
+  border-radius: 10px;
+  border: 1px solid rgba(232,200,116,.6);
+  background: linear-gradient(180deg, rgba(232,200,116,.2), rgba(232,200,116,.08));
+  color: var(--gold);
+  cursor: pointer;
+  text-shadow: 0 0 12px rgba(232,200,116,.4);
+  transition: all .15s;
+}
+#ascendBtn:not(:disabled):hover {
+  background: linear-gradient(180deg, rgba(232,200,116,.34), rgba(232,200,116,.14));
+  box-shadow: 0 0 22px rgba(232,200,116,.3);
+}
+#ascendBtn:disabled { border-color: var(--line); background: rgba(42,51,72,.4); color: var(--faint); text-shadow: none; cursor: default; }
 
 .boon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
 .boon-card {
@@ -784,6 +805,10 @@ footer {
         <div class="label">Age of the World</div>
         <div class="value"><span id="ageVal">1</span></div>
       </div>
+      <div class="res orlog" id="orlogChip" style="display:none">
+        <div class="label">Örlog</div>
+        <div class="value" id="orlogVal">0</div>
+      </div>
     </div>
   </header>
 
@@ -1057,6 +1082,7 @@ const SECRET_LORE = {
   memory:     ["Muninn's Memory", "The raven showed you the pattern of the world, and you remembered it. Memory always pays."],
   wildhunt:   ["The Wild Hunt", "You were carving at the turning of the day when the Hunt rode by. They slowed, and blessed the stone."],
   blank:      ["The Blank Rune", "There is a twenty-fifth rune. No name, no glyph, no meaning — and it was listening all along. It waits in the Wyrd."],
+  ninth:      ["The Ninth Door", "The ninth mystery was never hidden — it was carved. Master every rune, and the tree will let you climb no further: only hang. Beyond the nine doors there is no fate but the one you cut yourself."],
 };
 const SECRET_COUNT = Object.keys(SECRET_LORE).length;
 
@@ -1090,6 +1116,12 @@ const MASTERY = {
   othala:   { title:"The Ancestral Hearth", desc:"all rune production ×1.25" },
 };
 const masteryOf = id => (S.mastery && S.mastery[id]) || 0;
+const allMastered = () => RUNES.every(r => masteryOf(r.id) > 0);
+/* Örlog gained by walking the Ninth Door: deeper mastery and older worlds pay more */
+function orlogGain() {
+  const extraTranscends = RUNES.reduce((s, r) => s + Math.max(0, masteryOf(r.id) - 1), 0);
+  return 1 + Math.floor(S.age / 2) + extraTranscends + Math.floor(S.wyrd / 500);
+}
 
 /* ------------------------------------------------ STATE */
 
@@ -1123,6 +1155,8 @@ function defaultState() {
     mastery: {},         // rune id -> transcend count (Lv 1000 reset; unique perk first time)
     nextGift: 0,         // Gebo's ring-gift timer
     aettHigh: { 1: 0, 2: 0 }, // high-water aett level totals this Age (transcends don't un-open gates)
+    orlog: 0,            // Örlog: primal fate, won by Ascension — multiplies everything
+    ascensions: 0,       // times the Ninth Door has been walked
   };
 }
 
@@ -1211,6 +1245,7 @@ function globalProdMult() {
   if (masteryOf("sowilo") > 0) { const h = new Date().getHours(); if (h >= 6 && h < 18) m *= 1.5; } // Unsetting Sun
   if (masteryOf("mannaz") > 0) m *= 1 + 0.05 * S.discovered.binds.length;      // The Kindred
   if (masteryOf("othala") > 0) m *= 1.25;                        // Ancestral Hearth
+  m *= 1 + 0.5 * (S.orlog || 0);                                 // Örlog: the fate beneath fate
   return m;
 }
 function totalProd() {
@@ -1421,6 +1456,19 @@ function buyBoon(id) {
   dirty.wyrd = true;
 }
 
+function rebirthRunes() {
+  // the new world's first shoots: Fehu always returns; Berkano's mastery rebirths
+  // every known rune, and Ing's Blessing deepens whatever survives
+  if (masteryOf("berkano") > 0) {
+    S.runes = {};
+    for (const id of S.discovered.runes) S.runes[id] = 5; // The Quickening
+  } else {
+    S.runes = { fehu: 1 };
+  }
+  if (masteryOf("ingwaz") > 0)
+    for (const id of Object.keys(S.runes)) S.runes[id] += 1; // Ing's Blessing
+}
+
 function ragnarok() {
   const gain = wyrdGain();
   if (gain <= 0) return;
@@ -1435,16 +1483,7 @@ function ragnarok() {
   }
   S.essence = 0;
   S.cycle = 0;
-  // the new world's first shoots: Fehu always returns; Berkano's mastery rebirths
-  // every known rune, and Ing's Blessing deepens whatever survives
-  if (masteryOf("berkano") > 0) {
-    S.runes = {};
-    for (const id of S.discovered.runes) S.runes[id] = 5; // The Quickening
-  } else {
-    S.runes = { fehu: 1 };
-  }
-  if (masteryOf("ingwaz") > 0)
-    for (const id of Object.keys(S.runes)) S.runes[id] += 1; // Ing's Blessing
+  rebirthRunes();
   S.binds = kept;
   S.age++;
   S.aettHigh = { 1: 0, 2: 0 }; // the new world's gates must be earned anew
@@ -1483,6 +1522,32 @@ function transcendRune(id) {
   else
     toast(`<b>ᛞ ${r.name} transcends again (×${count})</b>`, "the rune returns, ten-thousand-fold mightier", true);
   dirty.futhark = dirty.codex = true;
+}
+
+/* --- the Ninth Door: Ascension beyond Ragnarök --- */
+function openAscendModal() {
+  const gain = orlogGain();
+  modal("The Ninth Door", `
+    <p>Every rune mastered, every mystery carved. The tree will let you climb no
+    further — only hang, as the god once hung.</p>
+    <p style="margin-top:8px">Beyond the door, <b>everything burns</b>: essence, runes,
+    binds, Wyrd, boons, even the Ages themselves. Only your <b>mastery</b> and what
+    the Codex remembers survive — what the gods carved into you cannot be uncarved.</p>
+    <p style="margin-top:8px">You will rise holding <span class="big">${gain} Örlog</span> —
+    the fate beneath fate, <b>+50% all essence</b> per point, forever.</p>`,
+    [ { label: "Hold the world", fn: closeModal },
+      { label: "Walk the door", primary: true, fn: ascend } ]);
+}
+function ascend() {
+  const gain = orlogGain();
+  S.orlog = (S.orlog || 0) + gain;
+  S.ascensions = (S.ascensions || 0) + 1;
+  S.essence = 0; S.cycle = 0; S.lifetime = 0;
+  rebirthRunes();
+  S.binds = []; S.wyrd = 0; S.boons = {}; S.buffs = [];
+  S.age = 1; S.aettHigh = { 1: 0, 2: 0 };
+  dirty.futhark = dirty.binds = dirty.codex = dirty.wyrd = true;
+  toast(`<b>᛬ You walk the Ninth Door</b>`, `+${gain} Örlog · the world begins again, and you are more than it remembers`, true);
 }
 
 function hardReset() {
@@ -1888,6 +1953,11 @@ function buildWyrd() {
       </div>
       <button id="ragnarokBtn">Ragnarök<span class="gain" id="ragnaGain"></span></button>
     </div>
+    <div class="wyrd-hero" id="ninthDoorCard" style="border-color:rgba(232,200,116,.4)">
+      <h3 style="color:var(--gold)">᛬ The Ninth Door</h3>
+      <p id="ninthDoorText"></p>
+      <button id="ascendBtn"></button>
+    </div>
     <div class="boon-grid" id="boonGrid"></div>
     <div class="hard-reset-row"><button id="hardResetBtn">un-carve everything (hard reset)</button></div>`;
 
@@ -1902,6 +1972,7 @@ function buildWyrd() {
         { label: "Let it burn", primary: true, fn: ragnarok } ]);
   });
   $("hardResetBtn").addEventListener("click", hardReset);
+  $("ascendBtn").addEventListener("click", openAscendModal);
 
   const grid = $("boonGrid");
   boonRefs = {};
@@ -1980,6 +2051,26 @@ function updateWyrd() {
 
   const bb = $("blankBuyBtn");
   if (bb) bb.disabled = S.wyrd < 99;
+
+  // the Ninth Door
+  const ndText = $("ninthDoorText"), ndBtn = $("ascendBtn");
+  if (ndText && ndBtn) {
+    if (allMastered()) {
+      ndText.innerHTML = `You hung from the tree as the god once hung. Beyond the door:
+        <b style="color:var(--text)">everything burns</b> — essence, runes, binds, Wyrd, boons, the Ages —
+        all but your mastery and the Codex. You rise holding <b style="color:#b8a8e8">Örlog</b>,
+        the fate beneath fate: <b>+50% all essence per point, forever.</b><br>
+        <span style="color:var(--dim)">held: ${S.orlog || 0} Örlog · doors walked: ${S.ascensions || 0}</span>`;
+      ndBtn.style.display = "";
+      ndBtn.textContent = `Ascend — +${orlogGain()} Örlog`;
+      ndBtn.disabled = false;
+    } else {
+      const masteredCount = RUNES.filter(r => masteryOf(r.id) > 0).length;
+      ndText.innerHTML = `Sealed. Transcend every rune — <b>${masteredCount}/24</b> mastered —
+        and the tree will let you hang where the god once hung.`;
+      ndBtn.style.display = "none";
+    }
+  }
 }
 
 /* --- Codex tab --- */
@@ -2135,6 +2226,13 @@ function updateHeader() {
   $("ageVal").textContent = S.age;
   $("clickPowVal").textContent = fmt(clickPower());
   $("critVal").textContent = Math.round(critChance() * 100) + "%";
+  const oc = $("orlogChip");
+  if (oc) {
+    oc.style.display = (S.orlog || 0) > 0 ? "" : "none";
+    $("orlogVal").textContent = fmt(S.orlog || 0);
+  }
+  const sub = document.querySelector(".brand .sub");
+  if (sub) sub.textContent = (S.ascensions || 0) > 0 ? "Runemaster of the Nine Doors" : "Carver of the Futhark";
   // binds badge: number of currently-available (ready) binds
   const ready = BINDS.filter(b => !S.binds.includes(b.id) && bindUnlockable(b)).length;
   const badge = $("bindBadge");
@@ -2223,6 +2321,18 @@ function loop() {
   }
   checkWildHunt();
   if (S.buffs.length && S.buffs.every(b => now >= b.until)) S.buffs = [];
+
+  // the Ninth Door: mastering every rune reveals the final mystery
+  if (allMastered() && !S.secrets.ninth) {
+    markSecret("ninth");
+    dirty.wyrd = true;
+    modal("The Ninth Door opens", `
+      <p>Nine nights the god hung. Twenty-four runes you have taken to their
+      thousandth line and let return to the stone — and the tree has noticed.</p>
+      <p style="margin-top:8px">A door stands open in the <b>Wyrd</b> tab. What waits
+      beyond it is not another world, but the <b>fate beneath fate</b>.</p>`,
+      [{ label: "Rise", primary: true, teal: true }]);
+  }
 
   // aett unlock watch + high-water tracking (transcends must not re-lock gates)
   for (const a of AETTS) {

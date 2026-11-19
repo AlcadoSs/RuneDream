@@ -21,12 +21,13 @@ The Codex tracks progress as **x/8 found** under "The Mysteries".
 | 6 | **Muninn's Memory** | own **Huginn & Muninn** boon (any rank); Müninn visits every ~10–18 min | rune-pattern memory minigame: watch 4 glyphs flash, click them back. Reward: 2 min of production + ×3 carves for 60 s | repeatable; only fires when no overlay is open |
 | 7 | **The Wild Hunt** | be playing during the **real-world midnight hour** (00:00–00:59 local) | ×3 essence for 60 s | once per calendar day |
 | 8 | **The Blank Rune ᛬** | **(a)** rare 2 % roll on any *critical* carve at Age ≥ 5, or **(b)** type `nothing` at Age ≥ 3 | unlocks a hidden card in the Wyrd tab: pay **99 Wyrd** once → **×9 all essence, forever** | discovery one-time; purchase one-time |
+| 9 | **The Ninth Door** | **master all 24 runes** (transcend each at least once) | reveals the final mystery and unlocks **Ascension** in the Wyrd tab: burn *everything* (essence, runes, binds, Wyrd, boons, the Ages) except mastery and the Codex, and rise with **Örlog** — +50 % all essence per point, forever (`orlogGain = 1 + floor(age/2) + extra transcends + floor(wyrd/500)`) | repeatable; mastery is never lost |
 
 ### Rejected / reserved ideas
 
 - Konami code — the typed-words system covers it with better flavor
 - A true 25th *generator* row — too invasive for the Futhark UI; the ×9 Wyrd card is the same fantasy, cheaper to build
-- **The ninth mystery** — deliberately left unmade. Nine is the sacred number; it should *hurt* a little that there are only eight.
+- ~~The ninth mystery~~ — **no longer reserved**: mastering all 24 runes *is* the ninth mystery (see table). The door was never hidden; it was carved.
 
 ---
 
@@ -48,7 +49,8 @@ Flavor lines and hints are interleaved so players can't tell which is which.
 | "Midnight belongs to the Wild Hunt. Be carving when they ride." | Wild Hunt |
 | "What the carver forgets, the raven remembers — if you keep the ravens." | Muninn's Memory (buy the ravens) |
 | "Somewhere beneath the roots, a well murmurs to those who would pay the price." | flavor (Mímir's Well) |
-| "The god won the runes by hanging from the tree. Nine touches for nine nights." | Nine Nights |
+| "The god won the runes by hanging from the tree. Nine touches for nine nights." | Nine Nights — and, read again, the Ninth Door |
+| *(no whisper points here — the ninth door announces itself)* | — |
 
 The word `nothing` is **never hinted** — it's the deep cut for players who stare at
 the Blank Rune lore ("carves nothing… the nothing stares back") and try speaking it.

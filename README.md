@@ -59,7 +59,10 @@ close — and the runes keep carving while you're away (50% base efficiency, 12h
 - **Mysteries** — whispers drift in from the Norns. Some things in this game are
   never explained: the old words still work, midnight matters, and there may or
   may not be a nameless twenty-fifth rune. The Codex counts what you've found
-  (8 to find — no spoilers here)
+  (9 to find — the last is beyond runes; no spoilers here)
+- **The Ninth Door** — master every rune and a door above Ragnarök opens:
+  **Ascension** burns everything — Wyrd, boons, the Ages — except your mastery,
+  and grants **Örlog**, the fate beneath fate (+50% all essence per point, forever)
 - **First-carve glow** — when you can afford a rune you've never carved, its row
   lights up so you never miss the moment
 - Generated theme art (backdrop + runestone), CSS-carved motion — no assets
