@@ -976,11 +976,12 @@ const BOONS = [
     desc:r=>`+${5*r}% offline efficiency, +${6*r}h offline cap` },
   { id:"ravens",     glyph:"ᚹ", name:"Huginn & Muninn", sub:"Thought and Memory",
     lore:"The ravens fly wide each dawn — some things they carry over the burning.",
-    baseCost:20, growth:2.5, max:6,
-    desc:r=>`Keep ${r} discovered bind${r===1?"":"s"} through Ragnarök` },
+    baseCost:20, growth:2.0, max:12,
+    desc:r=>r >= 12 ? "Keep ALL binds through Ragnarök — the ravens remember everything"
+                    : `Keep ${r} of ${BINDS.length} binds through Ragnarök` },
   { id:"bifrost",    glyph:"ᛒ", name:"Bifröst", sub:"The Rainbow Bridge",
     lore:"Between heaven and earth the bridge burns — and the stone carves itself.",
-    baseCost:25, growth:3, max:5,
+    baseCost:25, growth:2.6, max:10,
     desc:r=>r>0?`Auto-carve ${r}/s`:"—" },
 ];
 
