@@ -42,6 +42,11 @@ close — and the runes keep carving while you're away (50% base efficiency, 12h
   (*"Cattle Multiply"*, *"The Mead of Poetry"*, *"Wyrd Made Flesh"*…)
 - **Carve the stone** — tap the runestone (or press `Space`) for essence, with
   **Perthro**-granted critical carves
+- **Rune mastery** — the stone holds a thousand lines. At Lv 1000 a rune may be
+  **transcended**: it returns to zero, permanently ×10,000 mightier, and the first
+  transcend grants a **unique perk per rune** — 24 different masteries, from
+  *Golden Herds* (+25% all essence) to *The Quickening* (runes reborn at Lv 5 after
+  every Ragnarök)
 - **Rune uniques** — **Ansuz** (wisdom) cuts rune costs, **Raidho** (the long
   road) improves offline gains, **Perthro** (fate's dice) adds crit chance
 - **12 bind runes** — fuse two runes at Lv 10 into a named synergy

@@ -1022,6 +1022,37 @@ const SECRET_LORE = {
 };
 const SECRET_COUNT = Object.keys(SECRET_LORE).length;
 
+/* ---- Rune mastery: at Lv 1000 a rune may be transcended — back to zero,
+   forever ×10,000 mightier, and the first transcend grants a unique perk. ---- */
+const RUNE_LEVEL_CAP = 1000;
+const MASTERY = {
+  fehu:     { title:"Golden Herds",      desc:"+25% essence from all sources" },
+  uruz:     { title:"Aurochs' Might",    desc:"carve power ×2" },
+  thurisaz: { title:"Thorn's Edge",      desc:"critical carves strike ×12 instead of ×10" },
+  ansuz:    { title:"Word of the Allfather", desc:"−10% rune costs" },
+  raidho:   { title:"The Shorter Road",  desc:"+25% offline efficiency, +6h offline cap" },
+  kenaz:    { title:"The Forge-Light",  desc:"+10% carve crit chance (cap raised)" },
+  gebo:     { title:"The Ring-Giver",   desc:"every 5 minutes, a gift of 1 minute of production" },
+  wunjo:    { title:"Joy of the Hall",  desc:"+10% production per Age of the World" },
+  hagalaz:  { title:"Softened Sky",     desc:"Ragnarök threshold ×0.9" },
+  nauthiz:  { title:"Need's Fire",      desc:"×2 production while essence is below 25% of the Ragnarök threshold" },
+  isa:      { title:"Still Water",      desc:"timed blessings last twice as long" },
+  jera:     { title:"Endless Harvest",  desc:"every-100-level deepenings are ×2.5 instead of ×2" },
+  eihwaz:   { title:"The Straight Root", desc:"offline efficiency can reach 100%" },
+  perthro:  { title:"Fate's Favour",    desc:"crit cap +10%; the Blank Rune may appear at any Age" },
+  algiz:    { title:"The Watching Ward", desc:"+1 auto-carve per second" },
+  sowilo:   { title:"The Unsetting Sun", desc:"×1.5 production in the real world's daylight (06–18)" },
+  tiwaz:    { title:"The Kept Oath",    desc:"+15% Wyrd from Ragnarök" },
+  berkano:  { title:"The Quickening",   desc:"after Ragnarök, every rune you know is reborn at Lv 5" },
+  ehwaz:    { title:"The Tireless Steed", desc:"+2 auto-carves per second" },
+  mannaz:   { title:"The Kindred",      desc:"+5% production per discovered bind rune" },
+  laguz:    { title:"The Deep Current", desc:"carves gain 5% of production/s (up from 2%)" },
+  ingwaz:   { title:"Ing's Blessing",   desc:"every rune gains +1 level at each Ragnarök" },
+  dagaz:    { title:"The Long Dawn",    desc:"the Wild Hunt also rides at 6:00 and blesses ×4 longer" },
+  othala:   { title:"The Ancestral Hearth", desc:"all rune production ×1.25" },
+};
+const masteryOf = id => (S.mastery && S.mastery[id]) || 0;
+
 /* ------------------------------------------------ STATE */
 
 function defaultState() {
@@ -1051,6 +1082,8 @@ function defaultState() {
     wordAge: {},         // once-per-Age words: word -> age last spoken
     wordCd: {},          // cooldown words: word -> timestamp
     ansuzTaps: 0,        // nine nights progress
+    mastery: {},         // rune id -> transcend count (Lv 1000 reset; unique perk first time)
+    nextGift: 0,         // Gebo's ring-gift timer
   };
 }
 
@@ -1102,7 +1135,15 @@ function milestoneCount(lvl) {
 function runeProd(r) {
   const lvl = S.runes[r.id] || 0;
   if (!lvl) return 0;
-  return r.prod * lvl * Math.pow(2, milestoneCount(lvl)) * runeMultOf(r.id);
+  // milestones: ×2 per named tier (10/25/50/100), then deepenings per +100
+  // (Jera's mastery turns deepenings into ×2.5); transcends multiply it all
+  const named = MS_THRESHOLDS.filter(t => lvl >= t).length;
+  const deep = Math.max(0, Math.floor(lvl / 100) - 1);
+  const deepBase = masteryOf("jera") > 0 ? 2.5 : 2;
+  return r.prod * lvl
+       * Math.pow(2, named) * Math.pow(deepBase, deep)
+       * runeMultOf(r.id)
+       * Math.pow(10000, masteryOf(r.id));
 }
 /* timed mystery buffs */
 function prodBuffMult() {
@@ -1118,7 +1159,14 @@ function clickBuffMult() {
 function globalProdMult() {
   const hlid = S.boons.hlidskjalf || 0;
   const blank = S.boons.blankrune ? 9 : 1; // the nameless rune, carved at last
-  return (1 + 0.30 * hlid) * bindMult("prod_mult") * blank * prodBuffMult();
+  let m = (1 + 0.30 * hlid) * bindMult("prod_mult") * blank * prodBuffMult();
+  if (masteryOf("fehu") > 0) m *= 1.25;                          // Golden Herds
+  if (masteryOf("wunjo") > 0) m *= 1 + 0.10 * (S.age - 1);       // Joy of the Hall
+  if (masteryOf("nauthiz") > 0 && S.essence < ragnaThreshold() * 0.25) m *= 2; // Need's Fire
+  if (masteryOf("sowilo") > 0) { const h = new Date().getHours(); if (h >= 6 && h < 18) m *= 1.5; } // Unsetting Sun
+  if (masteryOf("mannaz") > 0) m *= 1 + 0.05 * S.discovered.binds.length;      // The Kindred
+  if (masteryOf("othala") > 0) m *= 1.25;                        // Ancestral Hearth
+  return m;
 }
 function totalProd() {
   let t = 0;
@@ -1128,7 +1176,8 @@ function totalProd() {
 function costDiscount() {
   const ans = S.runes.ansuz || 0;
   const fromAnsuz = ans ? Math.min(0.30, Math.floor(ans / 10) * 0.03) : 0;
-  return Math.min(0.60, fromAnsuz + bindSum("cost_discount", "val"));
+  const word = masteryOf("ansuz") > 0 ? 0.10 : 0; // Word of the Allfather
+  return Math.min(0.70, fromAnsuz + word + bindSum("cost_discount", "val"));
 }
 function runeCost(r, level) { // cost of the level-th level (1-indexed)
   return r.cost * Math.pow(GROWTH, level - 1);
@@ -1141,19 +1190,24 @@ function bulkCost(r, fromLvl, n) {
 }
 function maxAffordable(r) {
   const lvl = S.runes[r.id] || 0;
+  const room = RUNE_LEVEL_CAP - lvl;
   let n = 0;
-  while (n < 1000 && bulkCost(r, lvl, n + 1) <= S.essence) n++;
+  while (n < room && bulkCost(r, lvl, n + 1) <= S.essence) n++;
   return n;
 }
 function clickPower() {
-  const base = 1 + totalProd() * 0.02;
+  const share = masteryOf("laguz") > 0 ? 0.05 : 0.02; // The Deep Current
+  const base = 1 + totalProd() * share;
   const gungnir = Math.pow(2, S.boons.gungnir || 0);
-  return base * gungnir * bindMult("click_mult") * clickBuffMult();
+  return base * gungnir * bindMult("click_mult") * clickBuffMult()
+       * (masteryOf("uruz") > 0 ? 2 : 1);             // Aurochs' Might
 }
 function critChance() {
   const p = S.runes.perthro || 0;
   const nineNights = S.secrets.nineNights ? 0.09 : 0; // the god's rune knows your touch
-  return Math.min(0.44, p * 0.005 + nineNights);
+  const forgeLight = masteryOf("kenaz") > 0 ? 0.10 : 0; // The Forge-Light
+  const cap = 0.44 + (masteryOf("perthro") > 0 ? 0.10 : 0); // Fate's Favour
+  return Math.min(cap, p * 0.005 + nineNights + forgeLight);
 }
 function offlineStats() {
   const raidho = S.runes.raidho || 0;
@@ -1161,11 +1215,14 @@ function offlineStats() {
   let eff = OFFLINE_BASE_EFF
           + Math.min(0.30, raidho * 0.005)
           + sleip * 0.05
+          + (masteryOf("raidho") > 0 ? 0.25 : 0)   // The Shorter Road
           + bindSum("offline", "eff");
-  eff = Math.min(0.95, eff);
+  const effCap = masteryOf("eihwaz") > 0 ? 1.0 : 0.95; // The Straight Root
+  eff = Math.min(effCap, eff);
   let capH = OFFLINE_BASE_CAP_H
            + Math.min(10, Math.floor(raidho / 10))
            + sleip * 6
+           + (masteryOf("raidho") > 0 ? 6 : 0)
            + BINDS.filter(b => S.binds.includes(b.id) && b.effect.type === "offline")
                   .reduce((s, b) => s + b.effect.hours, 0);
   return { eff, capH };
@@ -1173,12 +1230,14 @@ function offlineStats() {
 /* each Age the world is reborn larger: the burning demands a deeper cycle */
 const RAGNA_THRESHOLD_GROWTH = 2.2;
 function ragnaThreshold() {
-  return RAGNA_THRESHOLD * Math.pow(RAGNA_THRESHOLD_GROWTH, S.age - 1);
+  const softened = masteryOf("hagalaz") > 0 ? 0.9 : 1; // Softened Sky
+  return RAGNA_THRESHOLD * softened * Math.pow(RAGNA_THRESHOLD_GROWTH, S.age - 1);
 }
 function wyrdGain() {
   if (S.cycle < ragnaThreshold()) return 0;
   const mimir = 1 + 0.12 * (S.boons.mimir || 0);
-  return Math.floor(8 * Math.pow(S.cycle / ragnaThreshold(), 0.7) * mimir);
+  const oath = masteryOf("tiwaz") > 0 ? 1.15 : 1; // The Kept Oath
+  return Math.floor(8 * Math.pow(S.cycle / ragnaThreshold(), 0.7) * mimir * oath);
 }
 
 /* number formatting */
@@ -1238,10 +1297,14 @@ function earn(n) {
 function carve(manual = true, fx = true) {
   let gain = clickPower();
   let crit = false;
-  if (Math.random() < critChance()) { gain *= 10; crit = true; S.crits++; }
+  if (Math.random() < critChance()) {
+    gain *= masteryOf("thurisaz") > 0 ? 12 : 10; // Thorn's Edge
+    crit = true; S.crits++;
+  }
   if (S.fenrirCarves > 0) { gain *= 3; S.fenrirCarves--; }
   // the nameless rune watches critical carves in older worlds
-  if (crit && S.age >= 5 && !S.secrets.blank && Math.random() < 0.02) discoverBlankRune();
+  const blankEligible = S.age >= 5 || masteryOf("perthro") > 0; // Fate's Favour
+  if (crit && blankEligible && !S.secrets.blank && Math.random() < 0.02) discoverBlankRune();
   earn(gain);
   if (manual) S.clicks++;
   if (fx && (manual || Math.random() < 0.12)) carveFx(crit, gain);
@@ -1252,7 +1315,9 @@ function buyRune(id, amountWanted) {
   const r = runeById(id);
   if (!aettUnlocked(r.aett)) return;
   const lvl = S.runes[id] || 0;
+  if (lvl >= RUNE_LEVEL_CAP) return;
   let n = amountWanted === "max" ? maxAffordable(r) : amountWanted;
+  n = Math.min(n, RUNE_LEVEL_CAP - lvl); // the stone holds no more than a thousand lines
   if (n <= 0) return;
   let cost = bulkCost(r, lvl, n);
   while (n > 1 && cost > S.essence) { n--; cost = bulkCost(r, lvl, n); } // never overpay for x10
@@ -1321,8 +1386,16 @@ function ragnarok() {
   }
   S.essence = 0;
   S.cycle = 0;
-  // Fehu — wealth always returns: keep a single level so the new age can begin on its own
-  S.runes = { fehu: 1 };
+  // the new world's first shoots: Fehu always returns; Berkano's mastery rebirths
+  // every known rune, and Ing's Blessing deepens whatever survives
+  if (masteryOf("berkano") > 0) {
+    S.runes = {};
+    for (const id of S.discovered.runes) S.runes[id] = 5; // The Quickening
+  } else {
+    S.runes = { fehu: 1 };
+  }
+  if (masteryOf("ingwaz") > 0)
+    for (const id of Object.keys(S.runes)) S.runes[id] += 1; // Ing's Blessing
   S.binds = kept;
   S.age++;
   const flavor = RAGNA_FLAVOR[(S.age - 2) % RAGNA_FLAVOR.length];
@@ -1334,6 +1407,32 @@ function ragnarok() {
     The runes are uncarved — but the Codex remembers all.</p>`,
     [{ label: "Carve anew", primary: true, teal: true }]);
   dirty.futhark = dirty.binds = dirty.codex = dirty.wyrd = true;
+}
+
+/* --- rune mastery: transcend at the cap --- */
+function openTranscendModal(id) {
+  const r = runeById(id);
+  const m = MASTERY[id];
+  const again = masteryOf(id) > 0;
+  modal(`Transcend ${r.name} ${r.glyph}`, `
+    <p>The rune returns to the stone, uncut — and its power stays with you:</p>
+    <p style="margin-top:8px">· ${r.name} production <b>×10,000</b>, permanently<br>
+    ${again ? "" : `· <b>${m.title}</b> — ${m.desc}<br>`}
+    · its level returns to zero, to be carved again</p>`,
+    [ { label: "Not yet", fn: closeModal },
+      { label: "Let it return", primary: true, teal: true, fn: () => transcendRune(id) } ]);
+}
+function transcendRune(id) {
+  const r = runeById(id);
+  if ((S.runes[id] || 0) < RUNE_LEVEL_CAP) return;
+  const count = masteryOf(id) + 1;
+  S.mastery[id] = count;
+  S.runes[id] = 0;
+  if (count === 1)
+    toast(`<b>ᛞ ${r.name} transcends — ${MASTERY[id].title}</b>`, MASTERY[id].desc, true);
+  else
+    toast(`<b>ᛞ ${r.name} transcends again (×${count})</b>`, "the rune returns, ten-thousand-fold mightier", true);
+  dirty.futhark = dirty.codex = true;
 }
 
 function hardReset() {
@@ -1373,6 +1472,7 @@ function markSecret(id) {
 }
 function addBuff(type, mult, ms) {
   S.buffs = S.buffs.filter(b => Date.now() < b.until);
+  if (masteryOf("isa") > 0) ms *= 2; // Still Water: blessings linger
   S.buffs.push({ type, mult, until: Date.now() + ms });
 }
 function whisper(text) {
@@ -1504,13 +1604,17 @@ function startMemoryGame() {
   };
 }
 
-/* --- the Wild Hunt rides at the turning of the day --- */
+/* --- the Wild Hunt rides at the turning of the day (and, mastered, at dawn) --- */
 function checkWildHunt(d = new Date()) {
-  if (d.getHours() === 0 && S.lastWildHunt !== d.toDateString()) {
-    S.lastWildHunt = d.toDateString();
-    addBuff("prod", 3, 60_000);
+  const dawnToo = masteryOf("dagaz") > 0; // The Long Dawn
+  const rides = d.getHours() === 0 || (dawnToo && d.getHours() === 6);
+  if (rides && S.lastWildHunt !== d.toDateString() + "@" + d.getHours()) {
+    S.lastWildHunt = d.toDateString() + "@" + d.getHours();
+    addBuff("prod", 3, dawnToo ? 240_000 : 60_000);
     markSecret("wildhunt");
-    toast("<b>The Wild Hunt rides</b>", "They pass at the day's turning — ×3 essence for a minute", true);
+    toast("<b>The Wild Hunt rides</b>", dawnToo
+      ? "They ride the long dawn — ×3 essence for four minutes"
+      : "They pass at the day's turning — ×3 essence for a minute", true);
   }
 }
 
@@ -1563,6 +1667,10 @@ function buildFuthark() {
     }
     root.appendChild(sec);
   }
+  const note = document.createElement("p");
+  note.style.cssText = "color:var(--faint);font-size:11.5px;margin:2px 4px 0";
+  note.textContent = "The stone holds a thousand lines. At Lv 1000 a rune may be transcended — returned to zero, forever ×10,000 mightier, bearing a unique and permanent gift.";
+  root.appendChild(note);
 }
 
 function buildRuneRow(r) {
@@ -1600,7 +1708,10 @@ function buildRuneRow(r) {
     add: row.querySelector(".add"),
   };
   runeRefs[r.id] = refs;
-  refs.btn.addEventListener("click", () => buyRune(r.id, S.buyAmount));
+  refs.btn.addEventListener("click", () => {
+    if ((S.runes[r.id] || 0) >= RUNE_LEVEL_CAP) openTranscendModal(r.id);
+    else buyRune(r.id, S.buyAmount);
+  });
   return row;
 }
 
@@ -1616,11 +1727,16 @@ function updateRuneRow(r) {
 
   // milestone progress
   const nextT = MS_THRESHOLDS.find(t => lvl < t);
-  if (lvl >= MS_THRESHOLDS[3]) {
+  if (lvl >= RUNE_LEVEL_CAP) {
+    refs.fill.style.width = "100%";
+    refs.msLabel.innerHTML = masteryOf(r.id) > 0
+      ? `<b>ᛞ Mastery ×${masteryOf(r.id)}</b> — ${MASTERY[r.id].title} · transcend again for more`
+      : `<b>ᛞ Mastery awaits</b> — transcend: back to zero, forever stronger, a unique gift`;
+  } else if (lvl >= MS_THRESHOLDS[3]) {
     const nextHundred = (Math.floor(lvl / 100) + 1) * 100;
     refs.fill.style.width = ((lvl % 100) ) + "%";
     refs.msLabel.innerHTML = lvl % 100 === 0
-      ? `<b>${r.name} deepens</b> — ×2 every 100 levels`
+      ? `<b>${r.name} deepens</b> — ×${masteryOf("jera") > 0 ? 2.5 : 2} every 100 levels`
       : `next ×2 at <b>Lv ${nextHundred}</b>`;
   } else if (nextT) {
     const prev = lvl < 10 ? 0 : MS_THRESHOLDS[MS_THRESHOLDS.indexOf(nextT) - 1];
@@ -1629,15 +1745,23 @@ function updateRuneRow(r) {
     refs.msLabel.innerHTML = `next: <b>${r.ms[idx]}</b> at Lv ${nextT} (×2)`;
   }
 
-  // buy button
-  const n = S.buyAmount === "max" ? Math.max(1, maxAffordable(r)) : S.buyAmount;
-  const cost = bulkCost(r, lvl, n);
-  const afford = S.essence >= cost && (S.buyAmount !== "max" || maxAffordable(r) >= 1);
-  refs.cost.textContent = fmt(cost);
-  refs.add.textContent = lvl === 0
-    ? `carve ${r.glyph}`
-    : `+${S.buyAmount === "max" ? Math.max(1, maxAffordable(r)) : n}`;
-  refs.btn.disabled = !afford || !aettUnlocked(r.aett);
+  // buy / transcend button
+  if (lvl >= RUNE_LEVEL_CAP) {
+    refs.cost.textContent = "TRANSCEND";
+    refs.add.textContent = masteryOf(r.id) > 0
+      ? `ᛞ again (×${masteryOf(r.id) + 1})`
+      : `ᛞ ${MASTERY[r.id].title}`;
+    refs.btn.disabled = false;
+  } else {
+    const n = S.buyAmount === "max" ? Math.max(1, maxAffordable(r)) : S.buyAmount;
+    const cost = bulkCost(r, lvl, n);
+    const afford = S.essence >= cost && (S.buyAmount !== "max" || maxAffordable(r) >= 1);
+    refs.cost.textContent = fmt(cost);
+    refs.add.textContent = lvl === 0
+      ? `carve ${r.glyph}`
+      : `+${S.buyAmount === "max" ? Math.max(1, maxAffordable(r)) : n}`;
+    refs.btn.disabled = !afford || !aettUnlocked(r.aett);
+  }
 
   // row states: owned / first-carve-available (glowing) / locked
   const firstCarve = lvl === 0 && afford && aettUnlocked(r.aett);
@@ -1826,10 +1950,16 @@ function buildCodex() {
       continue;
     }
     const lvl = S.runes[r.id] || 0;
+    const deep = Math.max(0, Math.floor(lvl / 100) - 1);
+    const deepBase = masteryOf("jera") > 0 ? 2.5 : 2;
+    const m = masteryOf(r.id);
     const msHtml = r.ms.map((name, i) => {
       const got = lvl >= MS_THRESHOLDS[i];
       return `<span class="${got ? "got" : ""}">${got ? "✦" : "✧"} ${name} <span class="lvl-tag">(${MS_THRESHOLDS[i]})</span></span>`;
-    }).join(" · ");
+    }).join(" · ") + ` · <span class="${deep > 0 ? "got" : ""}">✧ deepens ×${deepBase} every 100 <span class="lvl-tag">(${deep}/9 to 1000)</span></span>`
+      + (m > 0
+        ? ` · <span class="got">✦ Mastery: ${MASTERY[r.id].title}${m > 1 ? " ×" + m : ""}</span>`
+        : ` · <span>✧ Mastery <span class="lvl-tag">(Lv 1000 → ${MASTERY[r.id].title})</span></span>`);
     const c = document.createElement("div");
     c.className = "codex-card";
     c.innerHTML = `
@@ -2011,8 +2141,10 @@ function loop() {
   const p = totalProd();
   if (p > 0) earn(p * dt);
 
-  // Bifröst auto-carve
-  const auto = S.boons.bifrost || 0;
+  // Bifröst auto-carve, the Watching Ward, and the Tireless Steed
+  const auto = (S.boons.bifrost || 0)
+             + (masteryOf("algiz") > 0 ? 1 : 0)
+             + (masteryOf("ehwaz") > 0 ? 2 : 0);
   if (auto > 0) {
     autoAcc += auto * dt;
     while (autoAcc >= 1) { carve(false, false); autoAcc -= 1; }
@@ -2022,6 +2154,11 @@ function loop() {
   if (now > S.nextWhisper) {
     S.nextWhisper = now + (7 + Math.random() * 8) * 60_000;
     whisper(WHISPERS[S.whisperIdx++ % WHISPERS.length]);
+  }
+  if (masteryOf("gebo") > 0 && now > (S.nextGift || 0)) { // The Ring-Giver
+    S.nextGift = now + 5 * 60_000;
+    const gift = totalProd() * 60;
+    if (gift > 0) { earn(gift); toast("The Ring-Giver", `a gift arrives — <b>+${fmt(gift)}</b> essence`, true); }
   }
   if ((S.boons.ravens || 0) > 0 && now > S.nextMemory && !document.getElementById("memoryOverlay")) {
     S.nextMemory = now + (10 + Math.random() * 8) * 60_000;

@@ -46,11 +46,14 @@ function resetState() { S = G.defaultState(); G.setGameState(S); }
  * --------------------------------------------------------------- */
 function earn(n) { S.essence += n; S.lifetime += n; S.cycle += n; }
 
+const RUNE_LEVEL_CAP = 1000; // mirrors the game's cap; bots don't transcend
 function buy(id, amount) { // amount: 1 | 10 | "max"
   const r = G.RUNES.find(x => x.id === id);
   if (!G.aettUnlocked(r.aett)) return 0;
   const lvl = S.runes[id] || 0;
+  if (lvl >= RUNE_LEVEL_CAP) return 0;
   let n = amount === "max" ? G.maxAffordable(r) : amount;
+  n = Math.min(n, RUNE_LEVEL_CAP - lvl);
   if (n <= 0) return 0;
   let cost = G.bulkCost(r, lvl, n);
   while (n > 1 && cost > S.essence) { n--; cost = G.bulkCost(r, lvl, n); }
@@ -98,8 +101,12 @@ function doRagnarok() {
 /* marginal +1 level of a rune -> essence/sec gained (includes milestone jumps) */
 function marginal(r) {
   const lvl = S.runes[r.id] || 0;
+  if (lvl >= RUNE_LEVEL_CAP) return 0; // capped runes can't grow (transcend not simulated)
   const now = lvl ? G.runeProd(r) : 0;
-  const after = r.prod * (lvl + 1) * Math.pow(2, G.milestoneCount(lvl + 1)) * G.runeMultOf(r.id);
+  // mirror the game's milestone math: ×2 per named tier, then deepenings per +100
+  const named = [10, 25, 50, 100].filter(t => lvl + 1 >= t).length;
+  const deep = Math.max(0, Math.floor((lvl + 1) / 100) - 1);
+  const after = r.prod * (lvl + 1) * Math.pow(2, named) * Math.pow(2, deep) * G.runeMultOf(r.id);
   return (after - now) * G.globalProdMult();
 }
 function bestROI() {

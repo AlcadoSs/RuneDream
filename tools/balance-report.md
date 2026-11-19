@@ -1,90 +1,74 @@
-# RuneDream balance report
+# RuneDream balance sim — 2h sessions
 
-Simulated with `tools/balance-sim.js` — the harness slices the live game logic out of
-`index.html` (no duplicated rules), then plays 10 archetypes with real purchase/bind/
-boon/prestige semantics. Sessions: 8h and 24h per archetype.
+Logic extracted live from `index.html` (24 runes, 12 binds, 6 boons).
+
+| strategy | clicks | first rune | aett 2 | aett 3 | first bind | ragna ready | prestiges | deepest rune | peak rate/s | peak cycle | lifetime | stall% | avg gap |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Pure Idler | 15 | 0m | — | — | — | 57m | 2 | Wunjo (8/24) | 7.74K/s | 2.20M | 3.20M | 78% | 106s |
+| Hardcore Clicker | 43.2K | 0m | 1.5h | — | — | 33m | 3 | Wunjo (8/24) | 13.6K/s | 4.84M | 8.89M | 69% | 56s |
+| Casual | 900 | 1m | — | — | — | 44m | 2 | Wunjo (8/24) | 7.74K/s | 2.20M | 3.23M | 61% | 97s |
+| ROI Optimizer | 14.4K | 0m | 1.9h | — | — | 40m | 3 | Wunjo (8/24) | 13.6K/s | 4.84M | 8.05M | 72% | 67s |
+| Fehu Vertigo | 21.6K | 0m | 23m | — | — | — | 0 | Fehu (1/24) | 69/s | 345K | 345K | 68% | 124s |
+| Bind Collector | 28.8K | 1m | 1.7h | — | — | 36m | 3 | Wunjo (8/24) | 13.6K/s | 4.84M | 8.15M | 72% | 59s |
+| Prestige Speedrunner | 36.0K | 0m | 1.6h | — | — | 34m | 3 | Wunjo (8/24) | 13.6K/s | 4.84M | 8.35M | 69% | 58s |
+| Hoarder | 7.20K | 3m | — | — | — | 1.1h | 1 | Kenaz (6/24) | 2.01K/s | 1.00M | 1.64M | 90% | 600s |
+| MAX Buyer | 14.4K | 0m | 32m | — | — | 40m | 3 | Wunjo (8/24) | 7.93K/s | 4.84M | 8.04M | 73% | 88s |
+| Aett Rusher | 14.4K | 0m | 9m | — | — | — | 0 | Thurisaz (3/24) | 36/s | 274K | 274K | 92% | 180s |
+
+## Production rate over time (essence/sec)
+
+| strategy | 5m | 15m | 30m | 1h | 2h | 4h | 8h |
+|---|---|---|---|---|---|---|---|
+| Pure Idler | 0.1 | 3.6 | 80 | 0.2 | — | — | — |
+| Hardcore Clicker | 18 | 80 | 1.42K | 1.84K | — | — | — |
+| Casual | 4.4 | 18 | 337 | 5.7 | — | — | — |
+| ROI Optimizer | 4.4 | 80 | 337 | 438 | — | — | — |
+| Fehu Vertigo | 6.6 | 21 | 25 | 29 | — | — | — |
+| Bind Collector | 4.4 | 80 | 1.42K | 1.84K | — | — | — |
+| Prestige Speedrunner | 18 | 80 | 1.42K | 1.84K | — | — | — |
+| Hoarder | 0.9 | 4.7 | 20 | 367 | — | — | — |
+| MAX Buyer | 4.4 | 80 | 340 | 446 | — | — | — |
+| Aett Rusher | 9.2 | 36 | 36 | 36 | — | — | — |
+
+## Lifetime essence over time
+
+| strategy | 5m | 15m | 30m | 1h | 2h | 4h | 8h |
+|---|---|---|---|---|---|---|---|
+| Pure Idler | 57 | 486 | 13.9K | 1.00M | — | — | — |
+| Hardcore Clicker | 4.08K | 44.4K | 732K | 2.14M | — | — | — |
+| Casual | 968 | 9.65K | 152K | 1.00M | — | — | — |
+| ROI Optimizer | 1.33K | 16.1K | 220K | 1.12M | — | — | — |
+| Fehu Vertigo | 2.14K | 14.5K | 39.6K | 97.6K | — | — | — |
+| Bind Collector | 2.17K | 32.4K | 470K | 1.51M | — | — | — |
+| Prestige Speedrunner | 3.21K | 39.1K | 614K | 1.86M | — | — | — |
+| Hoarder | 437 | 3.05K | 19.5K | 434K | — | — | — |
+| MAX Buyer | 1.32K | 16.2K | 223K | 1.13M | — | — | — |
+| Aett Rusher | 1.89K | 21.4K | 57.6K | 130K | — | — | — |
+
+## End state after 2h
+
+| strategy | age | runes owned | total levels | binds found | wyrd held | boons |
+|---|---|---|---|---|---|---|
+| Pure Idler | 3 | 3/24 | 6 | 0/12 | 0 | hlid1, slei1 |
+| Hardcore Clicker | 4 | 7/24 | 28 | 0/12 | 8 | hlid1, slei1 |
+| Casual | 3 | 5/24 | 15 | 0/12 | 0 | hlid1, slei1 |
+| ROI Optimizer | 4 | 4/24 | 7 | 0/12 | 8 | hlid1, slei1 |
+| Fehu Vertigo | 1 | 1/24 | 58 | 0/12 | 0 | — |
+| Bind Collector | 4 | 6/24 | 21 | 0/12 | 8 | hlid1, slei1 |
+| Prestige Speedrunner | 4 | 7/24 | 24 | 0/12 | 8 | hlid1, slei1 |
+| Hoarder | 2 | 6/24 | 37 | 0/12 | 0 | hlid1 |
+| MAX Buyer | 4 | 3/24 | 6 | 0/12 | 8 | hlid1, slei1 |
+| Aett Rusher | 1 | 3/24 | 40 | 0/12 | 0 | — |
 
 ## Archetypes
 
-| # | Strategy | Behaviour |
-|---|---|---|
-| 1 | Pure Idler | taps only enough to carve Fehu, then never clicks again |
-| 2 | Hardcore Clicker | 6 carves/sec all session |
-| 3 | Casual | 1.5 carves/sec for 10 min, then walks away |
-| 4 | ROI Optimizer | 2 cps, always shortest-payback buy, grabs binds |
-| 5 | Fehu Vertigo | 3 cps, only ever levels Fehu, never prestiges |
-| 6 | Bind Collector | 4 cps, rushes pairs to Lv10, saves for binds |
-| 7 | Prestige Speedrunner | 5 cps, burns the world the moment it can (Mímir first) |
-| 8 | Hoarder | 1 cps, only buys at 10× cost, best ROI |
-| 9 | MAX Buyer | 2 cps, MAX-buys best ROI rune |
-| 10 | Aett Rusher | 2 cps, spreads levels to open gates, then top-loads |
-
-## Results — 8h sessions
-
-| strategy | first rune | aett 2 | aett 3 | first bind | ragna ready | prestiges | deepest rune | peak rate/s | peak cycle | lifetime | stall% | avg gap |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Pure Idler | 0m | 2.5h | — | — | 57m | 8 | Isa (11/24) | 706K/s | 249M | 458M | 73% | 65s |
-| Hardcore Clicker | 0m | 1.5h | — | — | 33m | 12 | Eihwaz (13/24) | 14.8M/s | 5.84B | 10.7B | 67% | 36s |
-| Casual | 1m | 2.4h | — | — | 44m | 8 | Isa (11/24) | 706K/s | 249M | 457M | 50% | 71s |
-| ROI Optimizer | 0m | 1.9h | — | — | 40m | 10 | Jera (12/24) | 3.52M/s | 1.21B | 2.24B | 70% | 45s |
-| Fehu Vertigo | 0m | 23m | — | — | 4.2h | 0 | Fehu (1/24) | 85/s | 2.23M | 2.23M | 89% | 406s |
-| Bind Collector | 1m | 1.7h | — | 4.8h | 36m | 12 | Jera (12/24) | 19.3M/s | 5.85B | 10.7B | 54% | 46s |
-| Prestige Speedrunner | 0m | 1.6h | — | — | 34m | 10 | Jera (12/24) | 2.97M/s | 2.14B | 4.35B | 70% | 42s |
-| Hoarder | 3m | 3.3h | — | — | 1.1h | 6 | Wunjo (8/24) | 43.6K/s | 51.5M | 95.0M | 91% | 565s |
-| MAX Buyer | 0m | 32m | — | — | 40m | 10 | Jera (12/24) | 3.61M/s | 1.21B | 2.22B | 72% | 77s |
-| Aett Rusher | 0m | 9m | — | — | 7.0h | 1 | Thurisaz (3/24) | 47/s | 1.00M | 1.17M | 96% | 365s |
-
-## Results — 24h sessions (key columns)
-
-| strategy | aett 3 | first bind | prestiges | deepest rune | peak rate/s | lifetime |
-|---|---|---|---|---|---|---|
-| Pure Idler | — | — | 18 | Sowilo (16/24) | 1.10B/s | 1.23T |
-| Hardcore Clicker | 17.3h | 16.2h | 24 | Ehwaz (19/24) | 81.2B/s | 138T |
-| Casual | — | — | 18 | Sowilo (16/24) | 1.10B/s | 1.21T |
-| ROI Optimizer | 21.2h | 19.7h | 21 | Tiwaz (17/24) | 6.29B/s | 12.9T |
-| Fehu Vertigo | — | — | 0 | Fehu (1/24) | 96/s | 8.01M |
-| Bind Collector | — | 4.8h | 21 | Sowilo (16/24) | 20.0B/s | 13.0T |
-| Prestige Speedrunner | 18.5h | 17.4h | 23 | Ehwaz (19/24) | 67.3B/s | 62.9T |
-| Hoarder | — | — | 15 | Eihwaz (13/24) | 67.7M/s | 114B |
-| MAX Buyer | 17.8h | 12.0h | 21 | Berkano (18/24) | 24.8B/s | 22.6T |
-| Aett Rusher | — | — | 2 | Thurisaz (3/24) | 47/s | 4.12M |
-
-## What the first sim run exposed (all fixed)
-
-1. **The back half of the Futhark was dead content.** Tier costs grew ×~7.5 per rune
-   while production grew ×~5.2 — nobody reached Aett 3 or a single bind in 8h; Othala
-   (2.2e21) was a fantasy number. → cost/prod are now generated from
-   `TIER_COST_MULT = 4.8` / `TIER_PROD_MULT = 4.2` (payback ~100s early, gently rising).
-2. **Prestige didn't compound.** Boons cost ×2.2–3.5 per rank while granting +12%/+6% —
-   after 20 Ragnaröks you were ~24% stronger. → Hliðskjálf +30%/rank (growth 1.55),
-   Mímir +12%/rank, wyrd gain `8 × (cycle/threshold)^0.7`.
-3. **Constant Ragnarök threshold created a degenerate 24-second reset loop** once the
-   engine got going (3,547 prestiges in 24h, runs frozen at exactly 1M). → the world is
-   reborn larger each Age: threshold ×2.2 per Age (`ragnaThreshold()`).
-4. **Post-Ragnarök soft-lock for idle players.** Wiping every rune left 0-click players
-   at 0 essence with no way to restart. → Ragnarök keeps a spark: Fehu Lv 1
-   ("wealth always returns").
-5. **Bind costs were handcrafted for the old economy** (2e12 for a pair whose runes now
-   cost 2.3e9). → bind cost = 10 × (sum of the pair's base costs), scaling automatically
-   with any future tier retuning.
-
-## Feel verdict (current curve)
-
-- **First Ragnarök at 33m–1.1h** for every sane playstyle — the target window.
-- **Aett 2 ~1.5–3h, Aett 3 ~17–21h** for engaged players; casual/idle reach Sowilo (16/24)
-  in a day. Tiers 20–24 are week-plus content — appropriate for an idle game.
-- **Binds**: dedicated collector finds the first at ~4.8h, others 12–20h. Late but
-  legible; a possible future tune is a cheap early aett-1-only bind.
-- **Strategy spread is meaningful**: clicker/speedrunner ≈ 10× a casual day; degenerate
-  strategies (Fehu-only, spread-thin) are correctly punished; hoarding is a trap;
-  MAX-buying ≈ ROI-buying with smoother gaps.
-- **Cadence**: engaged players act every 26–90s; casual stalls are expected.
-
-## Re-running
-
-```
-node tools/balance-sim.js --hours 8
-node tools/balance-sim.js --hours 24
-```
-
-The harness always reads current `index.html` — retune constants and re-run to compare.
+- **Pure Idler** — taps just enough to carve Fehu, then never touches the stone; buys greedily every 5s
+- **Hardcore Clicker** — 6 carves/sec all session; buys every 1s
+- **Casual** — 1.5 carves/sec for the first 10 min, then walks away; buys every 30s
+- **ROI Optimizer** — 2 carves/sec; always buys the shortest-payback upgrade (binds included)
+- **Fehu Vertigo** — 3 carves/sec; only ever levels Fehu (MAX); never prestiges
+- **Bind Collector** — 4 carves/sec; rushes pairs to Lv10, binds the moment it can
+- **Prestige Speedrunner** — 5 carves/sec; burns the world the moment it can; Mímir first
+- **Hoarder** — 1 carve/sec; only buys when essence ≥ 10× cost; best ROI
+- **MAX Buyer** — 2 carves/sec; MAX-buys the single best ROI rune each decision (binds included)
+- **Aett Rusher** — 2 carves/sec; spreads levels to open gates fast, then top-loaded buying
